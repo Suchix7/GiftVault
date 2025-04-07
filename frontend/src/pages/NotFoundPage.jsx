@@ -41,7 +41,7 @@ const NotFoundPage = () => {
               <Link to="/landingpage">Go to Home</Link>
             </Button>
             <Button variant="outline" size="lg" asChild>
-              <Link to="/login">Login</Link>
+              <Link to="/auth">Login</Link>
             </Button>
           </div>
         </div>

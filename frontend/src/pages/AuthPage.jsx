@@ -4,6 +4,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
+import axios from "axios";
+import api from "../api/axios";
+
 import {
   Card,
   CardContent,
@@ -19,6 +22,9 @@ import {
   TabsTrigger,
 } from "../components/ui/tabs";
 import { Gift, ArrowLeft } from "lucide-react";
+
+// Set axios base URL
+axios.defaults.baseURL = "http://localhost:5555/api";
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -37,27 +43,22 @@ const AuthPage = () => {
     const email = formData.get("email");
     const password = formData.get("password");
 
-    // Email validation
     if (!email) {
       newErrors.email = "Email is required";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = "Please enter a valid email";
     }
 
-    // Password validation
     if (!password) {
       newErrors.password = "Password is required";
-    } else if (password.length < 5) {
-      newErrors.password = "Password must be at least 5 characters";
-    } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-      newErrors.password = "Password must contain at least one symbol";
+    } else if (password.length < 6) {
+      newErrors.password = "Password must be at least 6 characters";
     }
 
     if (!isLogin) {
       const name = formData.get("name");
       const confirmPassword = formData.get("confirmPassword");
 
-      // Name validation
       if (!name) {
         newErrors.name =
           activeTab === "vendor"
@@ -65,7 +66,6 @@ const AuthPage = () => {
             : "Full name is required";
       }
 
-      // Confirm password validation
       if (!confirmPassword) {
         newErrors.confirmPassword = "Please confirm your password";
       } else if (password !== confirmPassword) {
@@ -79,6 +79,7 @@ const AuthPage = () => {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setIsLoading(true);
+    setErrors({});
 
     const formData = new FormData(event.currentTarget);
     const validationErrors = validateForm(formData);
@@ -93,48 +94,87 @@ const AuthPage = () => {
       const email = formData.get("email");
       const password = formData.get("password");
       const role = activeTab;
-
+      
       if (isLogin) {
-        // Simulate login API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        // Login logic with credentials
+        const response = await api.post(
+          "/auth/login",
+          {
+            email,
+            password,
+          },
+          {
+            withCredentials: true, // This is crucial for cookies
+          }
+        );
+        // In your AuthPage.jsx handleSubmit
+        if (isLogin) {
+          const redirectPath =
+            response.data.role === "admin"
+              ? "/admin_dashboard"
+              : response.data.role === "vendor"
+              ? "/vendor_dashboard"
+              : "/customer_dashboard";
 
-        // Simulate username taken error (for demo)
-        if (email === "taken@example.com") {
-          throw new Error("Email is already registered");
+          navigate(redirectPath);
         }
-
-        if (role === "admin") navigate("/admin/dashboard");
-        else if (role === "vendor") navigate("/vendor/dashboard");
-        else navigate("/user/dashboard");
+        // Store user info in localStorage (excluding sensitive data)
+        const { token, ...userData } = response.data;
+        // In your AuthPage.jsx handleSubmit
+        localStorage.setItem(
+          "userInfo",
+          JSON.stringify({
+            ...response.data,
+            role: response.data.role, // Ensure role is stored
+          })
+        );
+        // Redirect based on role
+        if (role === "admin") navigate("/admin_dashboard");
+        else if (role === "vendor") navigate("/vendor_dashboard");
+        else navigate("/Customer_Dashboard");
       } else {
         // Register logic
         const name = formData.get("name");
 
-        // Simulate registration API call
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+        const response = await api.post(
+          "/auth/register",
+          {
+            name,
+            email,
+            password,
+            role,
+          },
+          {
+            withCredentials: true,
+          }
+        );
 
-        // Simulate username taken error (for demo)
-        if (email === "taken@example.com") {
-          throw new Error("Email is already registered");
-        }
+        // Store user info in localStorage (excluding sensitive data)
+        const { token, ...userData } = response.data;
+        localStorage.setItem("userInfo", JSON.stringify(userData));
 
         if (role === "vendor") {
           setErrors({
-            ...errors,
-            form: "Vendor account submitted for approval",
+            form: "Vendor account submitted for approval. You'll be notified when approved.",
           });
         } else {
-          setErrors({ ...errors, form: "Account created successfully!" });
+          setErrors({ form: "Account created successfully!" });
+          setIsLogin(true); // Switch to login after successful registration
         }
-        setIsLogin(true);
       }
     } catch (err) {
-      setErrors({ ...errors, form: err.message });
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.error ||
+        err.message ||
+        "Something went wrong";
+      setErrors({ form: errorMessage });
     } finally {
       setIsLoading(false);
     }
   };
 
+  // ... [rest of your JSX remains the same, no changes needed]
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
       <div className="w-full max-w-md">

@@ -20,7 +20,7 @@ import {
   X,
 } from "lucide-react";
 import { format } from "date-fns";
-
+import LogoutButton from "@/components/LogoutButton";
 // Mock data for the application
 const voucherData = [
   {
@@ -2062,6 +2062,9 @@ const Vendor_Dashboard = () => {
             <LogOut className="h-5 w-5" />
             Logout
           </button>
+        </div>
+        <div className="mt-auto border-t border-border">
+          <LogoutButton />
         </div>
       </div>
 

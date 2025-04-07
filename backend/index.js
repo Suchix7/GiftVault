@@ -1,31 +1,38 @@
-import express, { request } from "express";
+import express from "express";
 import { PORT, mongoDBURL } from "./config.js";
 import mongoose from "mongoose";
 import booksRoute from "./routes/booksRoute.js";
+import authRoute from "./routes/authRoute.js";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 
 const app = express();
+app.use(cookieParser());
+// Middleware
 app.use(express.json());
-app.use(cors());
-// app.use(
-//   cors({
-//     origin: "http://localhost:3000",
-//     methods: ["GET", "PUT", "DELETE", "POST"],
-//     allowedHeaders: ["Content-Type"],
-//   })
-// );
+app.use(
+  cors({
+    origin: "http://localhost:5173", // Your frontend URL
+    credentials: true, // Allow credentials
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  })
+);
+
+// Routes
 app.get("/", (request, response) => {
-  return response.status(234).send("Welcome to this bookstore.");
+  return response.status(234).send("Welcome to GiftVault API");
 });
 
+app.use("/api/auth", authRoute); // Changed to /api/auth to match frontend
 app.use("/books", booksRoute);
 
+// Database connection
 mongoose
   .connect(mongoDBURL)
   .then(() => {
     console.log("App connected to database");
     app.listen(PORT, () => {
-      console.log(`App is listening to the port: ${PORT}`);
+      console.log(`App is listening to port: ${PORT}`);
     });
   })
   .catch((error) => {
