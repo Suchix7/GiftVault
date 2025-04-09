@@ -20,7 +20,7 @@ const AuthRedirect = () => {
           navigate("/customer_dashboard");
       }
     } else {
-      navigate("/landingpage");
+      navigate("/auth");
     }
   }, [navigate]);
 

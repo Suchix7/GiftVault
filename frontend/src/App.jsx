@@ -13,6 +13,7 @@ import Vendor_Dashboard from "./pages/Vendor_Dashboard";
 import Admin_Dashboard from "./pages/Admin_Dashboard";
 import Forbidden from "./pages/Forbidden";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Admin_Dashboards from "./pages/Admin_Dashboard copy";
 
 const App = () => {
   return (
@@ -24,6 +25,7 @@ const App = () => {
       <Route path="/books/details/:id" element={<ShowBook />} />
       <Route path="/books/delete/:id" element={<DeleteBook />} />
       <Route path="/auth" element={<AuthPage />} />
+      <Route path="admin" element={<Admin_Dashboards />} />
 
       {/* Protected Dashboard Routes */}
       <Route

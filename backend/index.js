@@ -5,6 +5,7 @@ import booksRoute from "./routes/booksRoute.js";
 import authRoute from "./routes/authRoute.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import userRoute from "./routes/userRoute.js";
 
 const app = express();
 app.use(cookieParser());
@@ -24,8 +25,9 @@ app.get("/", (request, response) => {
 });
 
 app.use("/api/auth", authRoute); // Changed to /api/auth to match frontend
+// Add this with your other routes
 app.use("/books", booksRoute);
-
+app.use("/api/users", userRoute);
 // Database connection
 mongoose
   .connect(mongoDBURL)

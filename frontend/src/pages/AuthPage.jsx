@@ -36,6 +36,10 @@ const AuthPage = () => {
   const toggleAuthMode = () => {
     setIsLogin(!isLogin);
     setErrors({});
+    // Reset to user tab when switching to register mode
+    if (!isLogin) {
+      setActiveTab("user");
+    }
   };
 
   const validateForm = (formData) => {
@@ -94,7 +98,7 @@ const AuthPage = () => {
       const email = formData.get("email");
       const password = formData.get("password");
       const role = activeTab;
-      
+
       if (isLogin) {
         // Login logic with credentials
         const response = await api.post(
@@ -133,7 +137,13 @@ const AuthPage = () => {
         else if (role === "vendor") navigate("/vendor_dashboard");
         else navigate("/Customer_Dashboard");
       } else {
-        // Register logic
+        // Register logic - admin cannot be registered
+        if (activeTab === "admin") {
+          setErrors({ form: "Admin accounts cannot be registered" });
+          setIsLoading(false);
+          return;
+        }
+
         const name = formData.get("name");
 
         const response = await api.post(
@@ -174,7 +184,6 @@ const AuthPage = () => {
     }
   };
 
-  // ... [rest of your JSX remains the same, no changes needed]
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-purple-50 p-4">
       <div className="w-full max-w-md">
@@ -212,10 +221,14 @@ const AuthPage = () => {
               onValueChange={setActiveTab}
               className="w-full"
             >
-              <TabsList className="grid grid-cols-3 w-full mb-6">
+              <TabsList
+                className={`grid w-full mb-6 ${
+                  isLogin ? "grid-cols-3" : "grid-cols-2"
+                }`}
+              >
                 <TabsTrigger value="user">User</TabsTrigger>
                 <TabsTrigger value="vendor">Vendor</TabsTrigger>
-                <TabsTrigger value="admin">Admin</TabsTrigger>
+                {isLogin && <TabsTrigger value="admin">Admin</TabsTrigger>}
               </TabsList>
 
               <AnimatePresence mode="wait">

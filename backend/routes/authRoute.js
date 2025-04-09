@@ -11,7 +11,6 @@ const generateToken = (id) => {
 
 // In your authRoute.js
 router.get("/check-session", protect, (req, res) => {
-  console.log("[Auth] Session check for user:", req.user);
   res.json({
     user: req.user,
     role: req.user.role,

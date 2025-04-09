@@ -28,11 +28,8 @@ const ProtectedRoute = ({ children, requiredRole }) => {
 
         console.log("[ProtectedRoute] Access granted");
       } catch (error) {
-        console.error(
-          "[ProtectedRoute] Auth check failed:",
-          error.response?.data || error.message
-        );
-        navigate("/landingpage");
+        console.error(error.response?.data || error.message);
+        navigate("/auth");
       }
     };
 
