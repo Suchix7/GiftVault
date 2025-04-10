@@ -2058,13 +2058,9 @@ const Vendor_Dashboard = () => {
         </nav>
 
         <div className="p-4 border-t">
-          <button className="flex items-center gap-3 w-full px-4 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent rounded-md">
-            <LogOut className="h-5 w-5" />
-            Logout
-          </button>
-        </div>
-        <div className="mt-auto border-t border-border">
-          <LogoutButton />
+          <div className="mt-auto">
+            <LogoutButton />
+          </div>
         </div>
       </div>
 

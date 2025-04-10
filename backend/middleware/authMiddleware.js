@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../config.js";
-import { User } from "../models/userModel.js";
+import { User } from "../models/UserModel.js";
 
 // authMiddleware.js
 export const protect = async (req, res, next) => {

@@ -16,11 +16,19 @@ const userSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    number: {
+      type: String,
+      required: false,
+    },
+    companyName: {
+      type: String,
+    },
     role: {
       type: String,
       enum: ["user", "vendor", "admin"],
       default: "user",
     },
+
     isApproved: {
       type: Boolean,
       default: function () {
@@ -47,4 +55,4 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-export const User = mongoose.model("User", userSchema);
+export const User = mongoose.models.User || mongoose.model("User", userSchema);

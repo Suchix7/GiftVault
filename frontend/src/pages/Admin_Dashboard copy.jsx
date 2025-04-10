@@ -1047,9 +1047,9 @@ const Admin_Dashboards = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-card border border-border rounded-lg p-6">
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-start ">
               <div>
-                <p className="text-sm font-medium text-muted-foreground">
+                <p className="text-sm font-medium text-muted-foreground ">
                   Total Vendors
                 </p>
                 <h3 className="text-3xl font-bold mt-2">{vendorCount}</h3>
