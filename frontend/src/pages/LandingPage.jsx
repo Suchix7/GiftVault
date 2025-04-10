@@ -59,7 +59,7 @@ export default function Home() {
               How It Works
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
-              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card">
+              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:scale-[1.01] transition-transform hover:bg-gray-50">
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <ShieldCheckIcon className="h-6 w-6 text-primary" />
                 </div>
@@ -71,7 +71,7 @@ export default function Home() {
                   steganography for maximum security.
                 </p>
               </div>
-              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card">
+              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:scale-[1.01] transition-transform hover:bg-gray-50">
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <UsersIcon className="h-6 w-6 text-primary" />
                 </div>
@@ -83,7 +83,7 @@ export default function Home() {
                   role-specific features.
                 </p>
               </div>
-              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card">
+              <div className="flex flex-col items-center text-center p-6 rounded-lg border bg-card hover:scale-[1.01] transition-transform hover:bg-gray-50">
                 <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-4">
                   <GiftIcon className="h-6 w-6 text-primary" />
                 </div>

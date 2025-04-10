@@ -14,9 +14,23 @@ import {
   Plus,
   Users,
 } from "lucide-react";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 import { format } from "date-fns";
 import { cn } from "../lib/utils";
-import { useToast } from "../hooks/use-toast";
+
+import { toast } from "sonner";
 const ViewUserModal = ({ isOpen, onClose, user }) => {
   if (!isOpen || !user) return null;
 
@@ -124,6 +138,18 @@ function UserList({ users, loading, error }) {
   const totalVendors = users.filter((u) => u.role === "vendor").length;
   const totalAdmins = users.filter((u) => u.role === "admin").length;
 
+  // Data for charts
+  const userDistributionData = [
+    { name: "Customers", value: totalRegularUsers },
+    { name: "Vendors", value: totalVendors },
+    { name: "Admins", value: totalAdmins },
+  ];
+
+  const vendorApprovalData = [
+    { name: "Approved", value: approvedVendors },
+    { name: "Pending", value: unapprovedVendors },
+  ];
+
   return (
     <div className="user-list">
       {users.length === 0 ? (
@@ -136,6 +162,8 @@ function UserList({ users, loading, error }) {
               {format(new Date(), "MMMM dd, yyyy")}
             </div>
           </div>
+
+          {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-card border border-border rounded-lg p-6 hover:scale-[1.01] transition-transform">
               <div className="flex justify-between items-start">
@@ -163,7 +191,7 @@ function UserList({ users, loading, error }) {
                   <h3 className="text-3xl font-bold mt-2">
                     {totalRegularUsers}
                   </h3>
-                  <p className="text-sm text-muted-foreground mt-1 ">
+                  <p className="text-sm text-muted-foreground mt-1">
                     Total: {approvedRegularUsers}
                   </p>
                 </div>
@@ -172,6 +200,7 @@ function UserList({ users, loading, error }) {
                 </div>
               </div>
             </div>
+
             <div className="bg-card border border-border rounded-lg p-6 hover:scale-[1.01] transition-transform">
               <div className="flex justify-between items-start">
                 <div>
@@ -186,6 +215,88 @@ function UserList({ users, loading, error }) {
                 <div className="bg-primary/10 p-2 rounded-full">
                   <Users className="h-6 w-6 text-primary" />
                 </div>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-lg p-6 hover:scale-[1.01] transition-transform">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Users
+                  </p>
+                  <h3 className="text-3xl font-bold mt-2">{users.length}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Across all roles
+                  </p>
+                </div>
+                <div className="bg-primary/10 p-2 rounded-full">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Charts Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* User Distribution Pie Chart */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">User Distribution</h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={userDistributionData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, percent }) =>
+                        `${name}: ${(percent * 100).toFixed(0)}%`
+                      }
+                    >
+                      {userDistributionData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={
+                            ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][
+                              index % 4
+                            ]
+                          }
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Vendor Approval Status Bar Chart */}
+            <div className="bg-card border border-border rounded-lg p-6">
+              <h3 className="text-lg font-semibold mb-4">
+                Vendor Approval Status
+              </h3>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={vendorApprovalData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="value" fill="#8884d8" name="Vendors">
+                      {vendorApprovalData.map((entry, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={index === 0 ? "#00C49F" : "#FF8042"}
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>
@@ -203,8 +314,6 @@ const Admin_Dashboard = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
-  const { toast } = useToast();
-  const [toasts, setToasts] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [creatingUserType, setCreatingUserType] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -227,17 +336,30 @@ const Admin_Dashboard = () => {
       }
 
       if (editingUser) {
-        // Update existing user
-        console.log(editingUser._id);
-        const response = await axios.patch(`/users/${editingUser._id}`, {
-          ...userData,
-          role: editingUser.role, // Keep the original role when editing
-        });
-        setUsers(
-          users.map((user) =>
-            user._id === editingUser._id ? response.data : user
-          )
-        );
+        try {
+          const response = await axios.patch(
+            `/users/${editingUser._id}`,
+            {
+              ...userData,
+              role: editingUser.role, // Keep the original role when editing
+            },
+            {
+              withCredentials: true,
+            }
+          );
+
+          console.log(response.data); // Check the structure of the response
+
+          // Update state with the new user data
+          setUsers(
+            users.map((user) =>
+              user._id === editingUser._id ? response.data : user
+            )
+          );
+        } catch (error) {
+          console.error("Error updating user:", error);
+          // Handle any error that occurs
+        }
       } else {
         // Create new user
         const response = await axios.post("/users", {
@@ -272,7 +394,6 @@ const Admin_Dashboard = () => {
       number: "",
     });
     const [loading, setLoading] = useState(false);
-    const { toast } = useToast();
 
     useEffect(() => {
       if (editingUser) {
@@ -306,27 +427,26 @@ const Admin_Dashboard = () => {
         await onCreate(formData);
         onClose();
         if (editingUser) {
-          toast({
-            title: "Success",
-            description: "User updated successfully",
-            type: "success",
+          toast("User Updated", {
+            description: "Sunday, December 03, 2023 at 9:00 AM",
+            action: {
+              label: "Remove",
+            },
           });
         } else {
-          toast({
-            title: "Success",
-            description: `${userType} created successfully`,
-            type: "success",
+          toast("User Created", {
+            description: "Sunday, December 03, 2023 at 9:00 AM",
+            action: {
+              label: "Remove",
+            },
           });
         }
       } catch (error) {
-        toast({
-          title: "Error",
-          description:
-            error.message ||
-            (editingUser
-              ? "Failed to update user"
-              : `Failed to create ${userType}`),
-          type: "error",
+        toast("Error while Updating", {
+          description: "Sunday, December 03, 2023 at 9:00 AM",
+          action: {
+            label: "Remove",
+          },
         });
       } finally {
         setLoading(false);
@@ -464,16 +584,18 @@ const Admin_Dashboard = () => {
     try {
       await axios.delete(`/users/${userId}`);
       setUsers(users.filter((user) => user._id !== userId));
-      toast({
-        title: "Success",
-        description: "User deleted successfully",
-        type: "success",
+      toast("User Deleted Successfully", {
+        description: "Sunday, December 03, 2023 at 9:00 AM",
+        action: {
+          label: "Remove",
+        },
       });
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete user",
-        type: "error",
+      toast("Error Deleting User ", {
+        description: "Sunday, December 03, 2023 at 9:00 AM",
+        action: {
+          label: "Remove",
+        },
       });
     }
   };
@@ -492,12 +614,12 @@ const Admin_Dashboard = () => {
         setLoading(false);
       })
       .catch((err) => {
-        console.error("Error fetching users:", err);
         setError(err);
-        toast({
-          title: "Error",
-          description: "Failed to load user data.",
-          type: "error",
+        toast("Error Fetching Users", {
+          description: "Sunday, December 03, 2023 at 9:00 AM",
+          action: {
+            label: "Remove",
+          },
         });
         setLoading(false);
       });
@@ -505,7 +627,7 @@ const Admin_Dashboard = () => {
 
   const toggleApprovalStatus = async (vendorId, newStatus) => {
     try {
-      const response = await axios.patch(`/users/${vendorId}`, {
+      const response = await axios.patch(`/users/approve/${vendorId}`, {
         isApproved: newStatus,
       });
 
@@ -516,17 +638,19 @@ const Admin_Dashboard = () => {
         )
       );
 
-      toast({
-        title: "Success",
-        description: `Vendor ${newStatus ? true : false} successfully`,
-        type: "success",
+      toast("Approval Toggled", {
+        description: "Sunday, December 03, 2023 at 9:00 AM",
+        action: {
+          label: "Remove",
+        },
       });
     } catch (err) {
       console.error("Error updating vendor status:", err);
-      toast({
-        title: "Error",
-        description: "Failed to update vendor status",
-        type: "error",
+      toast("Error Approving User", {
+        description: "Sunday, December 03, 2023 at 9:00 AM",
+        action: {
+          label: "Remove",
+        },
       });
     }
   };
@@ -829,7 +953,10 @@ const Admin_Dashboard = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-bold">Customer Management</h1>
-              <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+              <button
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+                onClick={() => handleCreateClick("Customer")}
+              >
                 <Plus className="h-4 w-4 mr-2 inline-block" />
                 Add Customer
               </button>
@@ -854,7 +981,7 @@ const Admin_Dashboard = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
-                    placeholder="Search vendors..."
+                    placeholder="Search customers..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 w-full bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
@@ -862,14 +989,6 @@ const Admin_Dashboard = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">All Status</option>
-                  </select>
-
                   <button
                     onClick={() => {
                       setSearchTerm("");
@@ -891,7 +1010,7 @@ const Admin_Dashboard = () => {
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                       >
-                        Vendor
+                        Customer
                       </th>
                       <th
                         scope="col"
@@ -905,15 +1024,17 @@ const Admin_Dashboard = () => {
                       >
                         Vouchers Used
                       </th>
-
                       <th
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                       >
                         Created At
                       </th>
-                      <th scope="col" className="relative px-6 py-3">
-                        <span className="sr-only">Actions</span>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      >
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -926,15 +1047,14 @@ const Admin_Dashboard = () => {
                           customer.name
                             .toLowerCase()
                             .includes(searchTerm.toLowerCase()) ||
-                          (customer.companyName &&
-                            customer.companyName
-                              .toLowerCase()
-                              .includes(searchTerm.toLowerCase()));
+                          customer.email
+                            .toLowerCase()
+                            .includes(searchTerm.toLowerCase());
 
                         return matchesSearch;
                       })
                       .map((customer) => (
-                        <tr key={customer._id} className="hover:bg-muted/50 ">
+                        <tr key={customer._id} className="hover:bg-muted/50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -954,19 +1074,36 @@ const Admin_Dashboard = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm ">
+                            <div className="text-sm">
                               {customer.vouchersRedeemed || 0} redeemed
                             </div>
                           </td>
-
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                             {customer.createdAt
                               ? new Date(customer.createdAt).toLocaleString()
-                              : "Never logged in"}
+                              : "Unknown"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
-                            <button className="text-primary hover:text-primary/80">
-                              View
+                            <button
+                              onClick={() => handleViewUser(customer)}
+                              className="text-primary hover:text-primary/80"
+                              title="View"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditUser(customer)}
+                              className="text-primary hover:text-primary/80"
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(customer._id)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </td>
                         </tr>
@@ -982,7 +1119,10 @@ const Admin_Dashboard = () => {
           <div className="space-y-6">
             <div className="flex justify-between items-center">
               <h1 className="text-3xl font-bold">Admin Management</h1>
-              <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+              <button
+                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
+                onClick={() => handleCreateClick("Admin")}
+              >
                 <Plus className="h-4 w-4 mr-2 inline-block" />
                 Add Admin
               </button>
@@ -1008,7 +1148,7 @@ const Admin_Dashboard = () => {
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
-                    placeholder="Search vendors..."
+                    placeholder="Search admins..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 pr-4 py-2 w-full bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
@@ -1016,14 +1156,6 @@ const Admin_Dashboard = () => {
                 </div>
 
                 <div className="flex flex-wrap gap-2">
-                  <select
-                    value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
-                    className="px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                  >
-                    <option value="">All Status</option>
-                  </select>
-
                   <button
                     onClick={() => {
                       setSearchTerm("");
@@ -1045,7 +1177,7 @@ const Admin_Dashboard = () => {
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                       >
-                        Vendor
+                        Admin
                       </th>
                       <th
                         scope="col"
@@ -1057,17 +1189,19 @@ const Admin_Dashboard = () => {
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                       >
-                        Vouchers Used
+                        Status
                       </th>
-
                       <th
                         scope="col"
                         className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
                       >
                         Created At
                       </th>
-                      <th scope="col" className="relative px-6 py-3">
-                        <span className="sr-only">Actions</span>
+                      <th
+                        scope="col"
+                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                      >
+                        Actions
                       </th>
                     </tr>
                   </thead>
@@ -1080,15 +1214,14 @@ const Admin_Dashboard = () => {
                           admin.name
                             .toLowerCase()
                             .includes(searchTerm.toLowerCase()) ||
-                          (admin.companyName &&
-                            admin.companyName
-                              .toLowerCase()
-                              .includes(searchTerm.toLowerCase()));
+                          admin.email
+                            .toLowerCase()
+                            .includes(searchTerm.toLowerCase());
 
                         return matchesSearch;
                       })
                       .map((admin) => (
-                        <tr key={admin._id} className="hover:bg-muted/50 ">
+                        <tr key={admin._id} className="hover:bg-muted/50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -1102,23 +1235,40 @@ const Admin_Dashboard = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm">{admin.email}</div>
                             <div className="text-sm text-muted-foreground">
-                              {admin.phone || "No phone"}
+                              {admin.number || "No phone"}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm ">
-                              {admin.vouchersRedeemed || 0} redeemed
-                            </div>
+                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
+                              Active
+                            </span>
                           </td>
-
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                             {admin.createdAt
                               ? new Date(admin.createdAt).toLocaleString()
-                              : "Never logged in"}
+                              : "Unknown"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
-                            <button className="text-primary hover:text-primary/80">
-                              View
+                            <button
+                              onClick={() => handleViewUser(admin)}
+                              className="text-primary hover:text-primary/80"
+                              title="View"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEditUser(admin)}
+                              className="text-primary hover:text-primary/80"
+                              title="Edit"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(admin._id)}
+                              className="text-red-500 hover:text-red-700"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
                             </button>
                           </td>
                         </tr>
@@ -1188,35 +1338,6 @@ const Admin_Dashboard = () => {
         user={viewingUser}
       />
       <main className="flex-1 overflow-y-auto p-8">{renderContent()}</main>
-
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={cn(
-              "bg-card border border-border rounded-md shadow-lg p-4 flex items-start gap-3 animate-in slide-in-from-right-5",
-              toast.type === "success" && "border-green-500",
-              toast.type === "error" && "border-red-500"
-            )}
-          >
-            <div className="flex-1">
-              {toast.title && <div className="font-medium">{toast.title}</div>}
-              {toast.description && (
-                <div className="text-sm text-muted-foreground mt-1">
-                  {toast.description}
-                </div>
-              )}
-            </div>
-            <button
-              className="text-muted-foreground hover:text-foreground"
-              onClick={() => setToasts(toasts.filter((t) => t.id !== toast.id))}
-            >
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 };

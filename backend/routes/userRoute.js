@@ -1,6 +1,7 @@
 import express from "express";
 import { User } from "../models/UserModel.js";
 import { createUser, updateUser } from "../controllers/userController.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 router.get("/", async (req, res) => {
@@ -28,8 +29,30 @@ router.get("/:id", async (req, res) => {
   }
 });
 router.post("/", createUser);
-router.patch("/:id", updateUser);
+router.patch("/:id", protect, updateUser);
+router.patch("/approve/:vendorId", async (req, res) => {
+  const { vendorId } = req.params; // Get the vendorId from URL params
+  const { isApproved } = req.body; // Get the new approval status from request body
 
+  try {
+    // Find the user by vendorId and update the isApproved status
+    const updatedUser = await User.findByIdAndUpdate(
+      vendorId,
+      { isApproved: isApproved },
+      { new: true } // Return the updated document
+    ).select("-password"); // Exclude the password from the response
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return the updated user data
+    res.status(200).json(updatedUser);
+  } catch (err) {
+    console.error("Error updating approval status:", err);
+    res.status(500).json({ message: "Internal Server Error" });
+  }
+});
 router.delete("/:id", async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
@@ -41,4 +64,5 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
 export default router;
