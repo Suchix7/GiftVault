@@ -2,26 +2,132 @@
 import LogoutButton from "@/components/LogoutButton";
 import { useState, useEffect } from "react";
 import axios from "axios";
-import {
-  BarChart3,
-  Gift,
-  LayoutDashboard,
-  Plus,
-  Search,
-  Shield,
-  Users,
-  X,
-} from "lucide-react";
+import { Filter, Check, X, Search } from "lucide-react";
+import { LayoutDashboard, Plus, Users } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "../lib/utils";
 import { useToast } from "../hooks/use-toast";
 
-function UserList() {
-  // Fetch user data from the backend
-  const { toast } = useToast();
+function UserList({ users, loading, error }) {
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error loading users</p>;
+
+  // Approved & Unapproved Users
+  const approvedUsers = users.filter((user) => user.isApproved);
+  const unapprovedUsers = users.filter((user) => !user.isApproved);
+
+  // Count by Role (Approved)
+  const approvedAdmins = approvedUsers.filter((u) => u.role === "admin").length;
+  const approvedVendors = approvedUsers.filter(
+    (u) => u.role === "vendor"
+  ).length;
+  const approvedRegularUsers = approvedUsers.filter(
+    (u) => u.role === "user"
+  ).length;
+
+  // Count by Role (Unapproved)
+  const unapprovedVendors = unapprovedUsers.filter(
+    (u) => u.role === "vendor"
+  ).length;
+
+  // Total Users (Regardless of Approval)
+  const totalRegularUsers = users.filter((u) => u.role === "user").length;
+  const totalVendors = users.filter((u) => u.role === "vendor").length;
+  const totalAdmins = users.filter((u) => u.role === "admin").length;
+
+  return (
+    <div className="user-list">
+      {users.length === 0 ? (
+        <p>No users found</p>
+      ) : (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+            <div className="text-sm text-muted-foreground">
+              {format(new Date(), "MMMM dd, yyyy")}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
+            <p>Total Users: {totalRegularUsers}</p>
+            <p>Total Vendors: {totalVendors}</p>
+            <p>Total Admins: {totalAdmins}</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Vendors
+                  </p>
+                  <h3 className="text-3xl font-bold mt-2">{totalVendors}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {approvedVendors} Approved, {unapprovedVendors} Unapproved
+                  </p>
+                </div>
+                <div className="bg-primary/10 p-2 rounded-full">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Customers
+                  </p>
+                  <h3 className="text-3xl font-bold mt-2">
+                    {totalRegularUsers}
+                  </h3>
+                  <p className="text-sm text-muted-foreground mt-1 ">
+                    Total: {approvedRegularUsers}
+                  </p>
+                </div>
+                <div className="bg-primary/10 p-2 rounded-full">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-6">
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Total Admin
+                  </p>
+                  <h3 className="text-3xl font-bold mt-2">{totalAdmins}</h3>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Total: {approvedAdmins}
+                  </p>
+                </div>
+                <div className="bg-primary/10 p-2 rounded-full">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const Admin_Dashboard = () => {
+  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [users, setUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const { toast } = useToast();
+  const [toasts, setToasts] = useState([]);
+
+  const navItems = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "vendors", label: "Vendors", icon: Users },
+    { id: "customers", label: "Customers", icon: Users },
+    { id: "admins", label: "Admins", icon: Users },
+  ];
 
   useEffect(() => {
     axios
@@ -42,176 +148,9 @@ function UserList() {
       });
   }, []);
 
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error loading users</p>;
-  // Filter approved users
-  const approvedUsers = users.filter((user) => user.isApproved === true);
-
-  // Count by role
-  const totalAdmins = approvedUsers.filter(
-    (user) => user.role === "admin"
-  ).length;
-  const totalVendors = approvedUsers.filter(
-    (user) => user.role === "vendor"
-  ).length;
-  const totalUsers = approvedUsers.filter(
-    (user) => user.role === "user"
-  ).length;
-
-  return (
-    <div className="user-list">
-      {users.length === 0 ? (
-        <p>No users found</p>
-      ) : (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <div className="text-sm text-muted-foreground">
-              {format(new Date(), "MMMM dd, yyyy")}
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
-            <p>Total Users: {totalUsers}</p>
-            <p>Total Vendors: {totalVendors}</p>
-            <p>Total Admins: {totalAdmins}</p>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Vendors
-                  </p>
-                  <h3 className="text-3xl font-bold mt-2">{totalVendors}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {/* {activeVendors} active */}
-                  </p>
-                </div>
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-6">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Customers
-                  </p>
-                  <h3 className="text-3xl font-bold mt-2">{totalUsers}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {/* {activeCustomers} active */}
-                  </p>
-                </div>
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </div>
-          </div>
-          {/* <ul>
-            {users.map((user) => (
-              <li key={user._id}>
-                {" "}
-                <div>
-                  <h3>Name: {user.name}</h3>
-                  <p>Email: {user.email}</p>
-                  <p>Role: {user.role}</p>
-                </div>
-              </li>
-            ))}
-          </ul> */}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Main component
-const Admin_Dashboard = () => {
-  // State for navigation and content
-  const [currentPage, setCurrentPage] = useState("dashboard");
-  const [activeTab, setActiveTab] = useState("overview");
-
-  // State for data fetched from the backend
-  const [roles, setRoles] = useState([]);
-  const [voucherCampaigns, setVoucherCampaigns] = useState([]);
-  const [voucherTemplates, setVoucherTemplates] = useState([]);
-  const [systemSettings, setSystemSettings] = useState({});
-  const [availablePermissions, setAvailablePermissions] = useState([]);
-
-  // State for selected items
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [selectedRole, setSelectedRole] = useState(null);
-  const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
-
-  // State for creation forms
-  const [isCreatingUser, setIsCreatingUser] = useState(false);
-  const [isCreatingRole, setIsCreatingRole] = useState(false);
-  const [isCreatingCampaign, setIsCreatingCampaign] = useState(false);
-  const [isCreatingTemplate, setIsCreatingTemplate] = useState(false);
-
-  // State for form data
-  const [newUser, setNewUser] = useState({
-    name: "",
-    email: "",
-    type: "vendor",
-    role: "",
-    status: "active",
-    companyName: "",
-    department: "",
-  });
-
-  const [newRole, setNewRole] = useState({
-    name: "",
-    type: "vendor",
-    description: "",
-    permissions: [],
-  });
-
-  const [newCampaign, setNewCampaign] = useState({
-    name: "",
-    vendor: "",
-    startDate: "",
-    endDate: "",
-    vouchersToCreate: "",
-    voucherValue: "",
-    template: "",
-  });
-
-  const [newTemplate, setNewTemplate] = useState({
-    name: "",
-    category: "Seasonal",
-    description: "",
-  });
-
-  // State for search and filters
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-
-  // Toast notifications
-  const { toast } = useToast();
-  const [toasts, setToasts] = useState([]);
-
-  // Navigation items
-  const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "vendors", label: "Vendors", icon: Users },
-    { id: "customers", label: "Customers", icon: Users },
-    { id: "admins", label: "Admins", icon: Shield },
-    { id: "vouchers", label: "Vouchers", icon: Gift },
-  ];
-
-  // // Fetch data from the backend
-
-  // Helper functions
   const handlePageChange = (page) => {
     setCurrentPage(page);
     setActiveTab(getDefaultTabForPage(page));
-    resetSelections();
   };
 
   const getDefaultTabForPage = (page) => {
@@ -219,45 +158,253 @@ const Admin_Dashboard = () => {
       case "dashboard":
         return "overview";
       case "vendors":
+        return "allVendors";
       case "customers":
+        return "allCustomers";
       case "admins":
-        return "all" + page.charAt(0).toUpperCase() + page.slice(1);
-      case "vouchers":
-        return "campaigns";
+        return "allAdmins";
       default:
         return "overview";
     }
   };
 
-  const resetSelections = () => {
-    setSelectedUser(null);
-    setSelectedRole(null);
-    setSelectedCampaign(null);
-    setSelectedTemplate(null);
-    setIsCreatingUser(false);
-    setIsCreatingRole(false);
-    setIsCreatingCampaign(false);
-    setIsCreatingTemplate(false);
-  };
-
-  // Render content based on the current page
   const renderContent = () => {
     switch (currentPage) {
       case "dashboard":
         return (
           <div>
-            <UserList />
+            <UserList users={users} loading={loading} error={error} />
           </div>
         );
 
       case "vendors":
-        return <div>Vendors Content</div>;
+        return (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h1 className="text-3xl font-bold">Vendor Management</h1>
+              <button className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90">
+                <Plus className="h-4 w-4 mr-2 inline-block" />
+                Add Vendor
+              </button>
+            </div>
+            <div className="border-b border-border">
+              <div className="flex space-x-1">
+                <button
+                  className={`px-4 py-2 ${
+                    activeTab === "allVendors"
+                      ? "border-b-2 border-primary font-medium"
+                      : "text-muted-foreground"
+                  }`}
+                  onClick={() => setActiveTab("allVendors")}
+                >
+                  All Vendors
+                </button>
+                <button
+                  className={`px-4 py-2 ${
+                    activeTab === "activeVendors"
+                      ? "border-b-2 border-primary font-medium"
+                      : "text-muted-foreground"
+                  }`}
+                  onClick={() => setActiveTab("activeVendors")}
+                >
+                  Approved Vendors
+                </button>
+                <button
+                  className={`px-4 py-2 ${
+                    activeTab === "inactiveVendors"
+                      ? "border-b-2 border-primary font-medium"
+                      : "text-muted-foreground"
+                  }`}
+                  onClick={() => setActiveTab("inactiveVendors")}
+                >
+                  Unapproved Vendors
+                </button>
+              </div>
+            </div>
+            {(activeTab === "allVendors" ||
+              activeTab === "activeVendors" ||
+              activeTab === "inactiveVendors") && (
+              <div className="space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                  <div className="relative w-full md:max-w-sm">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <input
+                      type="text"
+                      placeholder="Search vendors..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10 pr-4 py-2 w-full bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    >
+                      <option value="">All Status</option>
+                      <option value="approved">Approved</option>
+                      <option value="unapproved">Unapproved</option>
+                    </select>
+
+                    <button
+                      onClick={() => {
+                        setSearchTerm("");
+                        setFilterStatus("");
+                      }}
+                      className="px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 flex items-center gap-1"
+                    >
+                      <Filter className="h-4 w-4" />
+                      <span>Reset Filters</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="border border-border rounded-md overflow-hidden">
+                  <table className="min-w-full divide-y divide-border">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
+                          Vendor
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
+                          Contact
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
+                          Vouchers
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
+                          Status
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                        >
+                          Created At
+                        </th>
+                        <th scope="col" className="relative px-6 py-3">
+                          <span className="sr-only">Actions</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-background divide-y divide-border">
+                      {users
+                        .filter((user) => user.role === "vendor")
+                        .filter((vendor) => {
+                          const matchesSearch =
+                            searchTerm === "" ||
+                            vendor.name
+                              .toLowerCase()
+                              .includes(searchTerm.toLowerCase()) ||
+                            (vendor.companyName &&
+                              vendor.companyName
+                                .toLowerCase()
+                                .includes(searchTerm.toLowerCase()));
+
+                          const matchesStatus =
+                            filterStatus === "" ||
+                            (filterStatus === "approved" &&
+                              vendor.isApproved) ||
+                            (filterStatus === "unapproved" &&
+                              !vendor.isApproved);
+
+                          const matchesTab =
+                            activeTab === "allVendors" ||
+                            (activeTab === "activeVendors" &&
+                              vendor.isApproved) ||
+                            (activeTab === "inactiveVendors" &&
+                              !vendor.isApproved);
+
+                          return matchesSearch && matchesStatus && matchesTab;
+                        })
+                        .map((vendor) => (
+                          <tr
+                            key={vendor._id}
+                            className="hover:bg-muted/50 cursor-pointer"
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <Users className="h-5 w-5 text-primary" />
+                                </div>
+                                <div className="ml-4">
+                                  <div className="font-medium">
+                                    {vendor.companyName || "Individual Vendor"}
+                                  </div>
+                                  <div className="text-sm text-muted-foreground">
+                                    {vendor.name}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm">{vendor.email}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {vendor.phone || "No phone"}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="text-sm">
+                                {vendor.vouchersCreated || 0} created
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {vendor.vouchersRedeemed || 0} redeemed
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs ${
+                                  vendor.isApproved
+                                    ? "bg-green-100 text-green-800"
+                                    : "bg-red-100 text-red-800"
+                                }`}
+                              >
+                                {vendor.isApproved
+                                  ? "Approved"
+                                  : "Pending Approval"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
+                              {vendor.createdAt
+                                ? new Date(vendor.createdAt).toLocaleString()
+                                : "Never logged in"}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
+                              {vendor.isApproved ? (
+                                <X className="h-5 w-5 text-red-500" />
+                              ) : (
+                                <Check className="h-5 w-5 text-green-500" />
+                              )}
+                              <button className="text-primary hover:text-primary/80">
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        );
       case "customers":
         return <div>Customers Content</div>;
       case "admins":
         return <div>Admins Content</div>;
-      case "vouchers":
-        return <div>Vouchers Content</div>;
       default:
         return <div>Dashboard Content</div>;
     }
@@ -265,7 +412,6 @@ const Admin_Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-background text-foreground">
-      {/* Sidebar */}
       <div className="w-64 border-r border-border flex-shrink-0">
         <div className="h-full flex flex-col">
           <div className="px-4 py-6 flex items-center justify-center">
@@ -297,10 +443,8 @@ const Admin_Dashboard = () => {
         </div>
       </div>
 
-      {/* Main content */}
       <main className="flex-1 overflow-y-auto p-8">{renderContent()}</main>
 
-      {/* Toast notifications */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2">
         {toasts.map((toast) => (
           <div
