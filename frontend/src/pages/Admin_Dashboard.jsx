@@ -228,7 +228,8 @@ const Admin_Dashboard = () => {
 
       if (editingUser) {
         // Update existing user
-        const response = await axios.put(`/users/${editingUser._id}`, {
+        console.log(editingUser._id);
+        const response = await axios.patch(`/users/${editingUser._id}`, {
           ...userData,
           role: editingUser.role, // Keep the original role when editing
         });
@@ -246,14 +247,6 @@ const Admin_Dashboard = () => {
         });
         setUsers([...users, response.data]);
       }
-
-      toast({
-        title: "Success",
-        description: editingUser
-          ? "User updated successfully"
-          : `${creatingUserType} created successfully`,
-        type: "success",
-      });
 
       return true;
     } catch (error) {
@@ -1109,7 +1102,7 @@ const Admin_Dashboard = () => {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm">{admin.email}</div>
                             <div className="text-sm text-muted-foreground">
-                              {admin.number || "No phone"}
+                              {admin.phone || "No phone"}
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">

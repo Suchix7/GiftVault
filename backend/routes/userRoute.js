@@ -1,9 +1,6 @@
 import express from "express";
 import { User } from "../models/UserModel.js";
-import {
-  createUser,
-  updateUserApproval,
-} from "../controllers/userController.js";
+import { createUser, updateUser } from "../controllers/userController.js";
 
 const router = express.Router();
 router.get("/", async (req, res) => {
@@ -31,33 +28,8 @@ router.get("/:id", async (req, res) => {
   }
 });
 router.post("/", createUser);
-router.patch("/:id", updateUserApproval);
+router.patch("/:id", updateUser);
 
-router.patch("/:id", async (req, res) => {
-  const { id } = req.params;
-  const { isApproved } = req.body;
-
-  if (typeof isApproved !== "boolean") {
-    return res.status(400).json({ error: "isApproved must be a boolean" });
-  }
-
-  try {
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      { isApproved },
-      { new: true }
-    );
-
-    if (!updatedUser) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    res.json(updatedUser);
-  } catch (error) {
-    console.error("Error updating user approval:", error);
-    res.status(500).json({ error: "Internal server error" });
-  }
-});
 router.delete("/:id", async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);

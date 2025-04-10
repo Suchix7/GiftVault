@@ -13,7 +13,7 @@ import Admin_Dashboard from "./pages/Admin_Dashboard";
 import Forbidden from "./pages/Forbidden";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Admin_Dashboards from "./pages/Admin_Dashboard copy";
-import { Toaster } from "./components/toaster";
+import { Toaster } from "sonner";
 
 const App = () => {
   return (
@@ -56,7 +56,6 @@ const App = () => {
 
         <Route path="/forbidden" element={<Forbidden />} />
       </Routes>
-
       <Toaster />
     </>
   );

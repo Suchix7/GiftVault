@@ -38,18 +38,22 @@ export const createUser = async (req, res) => {
     });
   }
 };
-
-// Update user approval status
-export const updateUserApproval = async (req, res) => {
+// Update any user fields
+export const updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { isApproved } = req.body;
+    const updates = req.body;
 
-    const user = await User.findByIdAndUpdate(
-      id,
-      { isApproved },
-      { new: true }
-    ).select("-password");
+    // Prevent password change here unless specifically handling hashing
+    if (updates.password) {
+      return res
+        .status(400)
+        .json({ message: "Password update not allowed here" });
+    }
+
+    const user = await User.findByIdAndUpdate(id, updates, {
+      new: true,
+    }).select("-password");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
