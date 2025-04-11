@@ -67,16 +67,8 @@ export const createUser = async (req, res) => {
 // };
 export const updateUser = async (req, res) => {
   try {
-    const { id } = req.params; // User ID to be updated
+    const { id } = req.params;
     const updates = req.body;
-
-    // Check if the authenticated user is an admin
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        message:
-          "Admin privileges are required to update another user's password",
-      });
-    }
 
     // Find the user by ID
     const user = await User.findById(id);
@@ -84,22 +76,32 @@ export const updateUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Handle password update securely if the admin is updating the password
-    if (updates.password) {
+    // Create a new object with only the fields we want to update
+    const updateData = {
+      name: updates.name || user.name,
+      email: updates.email || user.email,
+      companyName: updates.companyName || user.companyName,
+      number: updates.number || user.number,
+      isApproved:
+        updates.isApproved !== undefined ? updates.isApproved : user.isApproved,
+    };
+
+    // Only update password if it's provided and not empty
+    if (updates.password && updates.password.trim() !== "") {
       const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(updates.password, salt);
-      updates.password = hashedPassword;
+      updateData.password = await bcrypt.hash(updates.password, salt);
     }
 
-    // Update the user with the new data
-    const updatedUser = await User.findByIdAndUpdate(id, updates, {
+    // Update the user
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, {
       new: true,
+      select: "-password", // Don't return the password in the response
     });
 
-    // Return the updated user without sending the password
-    res
-      .status(200)
-      .json({ message: "User updated successfully", user: updatedUser });
+    res.status(200).json({
+      message: "User updated successfully",
+      user: updatedUser,
+    });
   } catch (error) {
     console.error("[Error] Update user failed:", error.message);
     res.status(500).json({ message: error.message });

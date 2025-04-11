@@ -322,7 +322,6 @@ const Admin_Dashboard = () => {
 
   const createUser = async (userData) => {
     try {
-      // Determine the role based on the user type being created
       let role;
       switch (creatingUserType) {
         case "Vendor":
@@ -336,36 +335,35 @@ const Admin_Dashboard = () => {
       }
 
       if (editingUser) {
-        try {
-          const response = await axios.patch(
-            `/users/${editingUser._id}`,
-            {
-              ...userData,
-              role: editingUser.role, // Keep the original role when editing
-            },
-            {
-              withCredentials: true,
-            }
-          );
-
-          console.log(response.data); // Check the structure of the response
-
-          // Update state with the new user data
-          setUsers(
-            users.map((user) =>
-              user._id === editingUser._id ? response.data : user
-            )
-          );
-        } catch (error) {
-          console.error("Error updating user:", error);
-          // Handle any error that occurs
+        // Prepare update data - exclude password if empty
+        const updateData = { ...userData };
+        if (!updateData.password || updateData.password.trim() === "") {
+          delete updateData.password;
         }
+
+        const response = await axios.patch(
+          `/users/${editingUser._id}`,
+          updateData,
+          {
+            withCredentials: true,
+            headers: {
+              "Content-Type": "application/json",
+            },
+          }
+        );
+
+        // Update state with the new user data
+        setUsers(
+          users.map((user) =>
+            user._id === editingUser._id ? response.data.user : user
+          )
+        );
       } else {
         // Create new user
         const response = await axios.post("/users", {
           ...userData,
           role,
-          isApproved: creatingUserType === "Vendor" ? false : true, // Vendors need approval
+          isApproved: creatingUserType === "Vendor" ? false : true,
         });
         setUsers([...users, response.data]);
       }
