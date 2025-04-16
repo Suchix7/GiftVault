@@ -6,6 +6,7 @@ import authRoute from "./routes/authRoute.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import userRoute from "./routes/userRoute.js";
+import voucherRoutes from "./routes/voucherRoute.js";
 
 const app = express();
 app.use(cookieParser());
@@ -18,6 +19,7 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
   })
 );
+app.use("/api/vouchers", voucherRoutes);
 
 // Routes
 app.get("/", (request, response) => {

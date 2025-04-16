@@ -9,6 +9,7 @@ import LandingPage from "./pages/LandingPage";
 import AuthPage from "./pages/AuthPage";
 import Customer_Dashboard from "./pages/Customer_Dashboard";
 import Vendor_Dashboard from "./pages/Vendor_Dashboard";
+import Vendor_Dashboards from "./pages/Vendor_Dashboard copy";
 import Admin_Dashboard from "./pages/Admin_Dashboard";
 import Forbidden from "./pages/Forbidden";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -53,7 +54,7 @@ const App = () => {
             </ProtectedRoute>
           }
         />
-
+        <Route path="/vendor" element={<Vendor_Dashboards />}></Route>
         <Route path="/forbidden" element={<Forbidden />} />
       </Routes>
       <Toaster />
