@@ -41,7 +41,14 @@ import voucherService from "@/api/vouchers";
 
 const Vendor_Dashboard = () => {
   // Navigation state
-  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [currentPage, setCurrentPage] = useState(() => {
+    // Get the saved page from localStorage on initial render
+    return localStorage.getItem("currentPage") || "dashboard";
+  });
+  useEffect(() => {
+    localStorage.setItem("currentPage", currentPage);
+  }, [currentPage]);
+
   const [activeTab, setActiveTab] = useState("overview");
   const [viewMode, setViewMode] = useState("list");
   const [searchTerm, setSearchTerm] = useState("");
@@ -92,6 +99,7 @@ const Vendor_Dashboard = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [voucherCreated, setVoucherCreated] = useState(false);
 
   // View Voucher Details
   const handleViewVoucher = (voucher) => {
@@ -155,16 +163,20 @@ const Vendor_Dashboard = () => {
 
   useEffect(() => {
     const loadVouchers = async () => {
+      setIsLoading(true);
       try {
-        const data = await voucherService.getVouchers();
+        const data = await voucherService.getVouchers(); // Fetch the vouchers
         setVouchers(data);
       } catch (error) {
         toast.error("Failed to load vouchers");
         console.error("Load vouchers error:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
-    loadVouchers();
-  }, []);
+
+    loadVouchers(); // Call the function to load vouchers
+  }, [voucherCreated]); // Dependency array includes voucherCreated
 
   const handleCreateVoucher = async (e) => {
     e.preventDefault();
@@ -185,9 +197,8 @@ const Vendor_Dashboard = () => {
       };
 
       const response = await voucherService.createVoucher(voucherData);
-
-      setVouchers([...vouchers, response.data]);
-
+      setVouchers((prevVouchers) => [...prevVouchers, response.data]);
+      setVoucherCreated((prev) => !prev);
       toast.success("Voucher created successfully");
 
       // Reset form
@@ -200,6 +211,7 @@ const Vendor_Dashboard = () => {
         color: "#000000",
       });
       setPreviewLogo(null);
+
       setCurrentPage("vouchers");
     } catch (error) {
       toast.error("Failed to create voucher");
