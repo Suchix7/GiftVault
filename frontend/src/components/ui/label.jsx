@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 function Label({
   className,
   ...props
-}) {
+}) {  
   return (
     (<LabelPrimitive.Root
       data-slot="label"

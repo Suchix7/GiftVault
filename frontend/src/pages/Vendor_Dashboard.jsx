@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import {
   LayoutDashboard,
   Gift,
@@ -82,16 +83,91 @@ const Vendor_Dashboard = () => {
       icon: <SettingsIcon className="h-5 w-5" />,
     },
   ];
+  // State for modals and selected voucher
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // View Voucher Details
+  const handleViewVoucher = (voucher) => {
+    setSelectedVoucher(voucher);
+    setIsViewModalOpen(true);
+  };
+
+  // Edit Voucher
+  const handleEditVoucher = (voucher) => {
+    setSelectedVoucher(voucher);
+    setIsEditModalOpen(true);
+  };
+
+  // Delete Voucher
+  const handleDeleteVoucher = async () => {
+    setIsLoading(true);
+    try {
+      await voucherService.deleteVoucher(selectedVoucher._id);
+      setVouchers(vouchers.filter((v) => v._id !== selectedVoucher._id));
+      toast.success("Voucher deleted successfully");
+      setIsDeleteModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to delete voucher");
+      console.error("Delete error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Update Voucher
+  const handleUpdateVoucher = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    try {
+      const response = await voucherService.updateVoucher(selectedVoucher._id, {
+        name: selectedVoucher.name,
+        value: selectedVoucher.value,
+        status: selectedVoucher.status,
+        expiryDate: selectedVoucher.expiryDate,
+        description: selectedVoucher.description,
+        campaign: selectedVoucher.campaign,
+      });
+      setVouchers(
+        vouchers.map((v) => (v._id === selectedVoucher._id ? response.data : v))
+      );
+      toast.success("Voucher updated successfully");
+      setIsEditModalOpen(false);
+    } catch (error) {
+      toast.error("Failed to update voucher");
+      console.error("Update error:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
     const loadVouchers = async () => {
       try {
         const data = await voucherService.getVouchers();
-        setVouchers(data);
+        // Ensure each voucher has an ID
+        const vouchersWithIds = data.map((voucher) => {
+          if (!voucher.id) {
+            // Generate an ID for vouchers that don't have one
+            const timestamp = Date.now().toString(36);
+            const randomStr = Math.random().toString(36).substr(2, 5);
+            return {
+              ...voucher,
+              id: `V-${timestamp}-${randomStr}`.toUpperCase(),
+            };
+          }
+          return voucher;
+        });
+        setVouchers(vouchersWithIds);
       } catch (error) {
-        toast("User Updated", {
-          description: "Sunday, December 03, 2023 at 9:00 AM",
+        toast("Failed to load vouchers", {
+          description: error.message,
           action: {
-            label: "Remove",
+            label: "Retry",
+            onClick: loadVouchers,
           },
         });
       }
@@ -109,33 +185,30 @@ const Vendor_Dashboard = () => {
         return;
       }
 
-      // 2) Generate an ID
-      const voucherId = `V-${(1000 + vouchers.length + 1)
-        .toString()
-        .substring(1)}`;
-      console.log("Generated Voucher ID:", voucherId);
+      // 2) Generate a unique ID (using timestamp + random string)
+      const timestamp = Date.now().toString(36);
+      const randomStr = Math.random().toString(36).substr(2, 5);
+      const voucherId = `V-${timestamp}-${randomStr}`.toUpperCase();
 
-      // 3) Format the expiry date
-      const formattedExpiry = newVoucher.expiryDate
-        ? format(newVoucher.expiryDate, "MM/dd/yyyy")
-        : "";
-
-      // 4) Build the single voucher object
+      // 4) Build the voucher object with the generated ID
       const voucherWithId = {
         id: voucherId,
         name: newVoucher.name,
         value: Number.parseFloat(newVoucher.value),
         description: newVoucher.description,
         campaign: newVoucher.campaign,
-        created: new Date().toLocaleString(),
-        expiryDate: formattedExpiry, // <-- match your backend field
+        created: format(new Date(), "MM/dd/yyyy hh:mm a"), // Formatted date string
+        expiryDate: format(
+          new Date(newVoucher.expiryDate),
+          "MM/dd/yyyy hh:mm a"
+        ),
         sentRedeemed: "0/0",
         status: "draft",
         color: newVoucher.color,
         logo: previewLogo,
       };
 
-      // 5) Send to backend (cookie auth via withCredentials)
+      // 5) Send to backend
       await voucherService.createVoucher(voucherWithId);
 
       // 6) Update local state
@@ -163,33 +236,11 @@ const Vendor_Dashboard = () => {
       setActiveTab("active");
     } catch (error) {
       console.error("Error creating voucher:", error);
-
       toast("Voucher Creation Failed", {
         description: `An error occurred: ${
           error.response?.data?.message || error.message
         }`,
         action: { label: "Remove" },
-      });
-    }
-  };
-
-  const handleUpdateVoucherStatus = async (id, newStatus) => {
-    try {
-      // Update in backend
-      await voucherService.updateVoucherStatus(id, newStatus);
-
-      // Update local state
-      setVouchers(
-        vouchers.map((voucher) =>
-          voucher.id === id ? { ...voucher, status: newStatus } : voucher
-        )
-      );
-    } catch (error) {
-      toast("Error ", {
-        description: "Sunday, December 03, 2023 at 9:00 AM",
-        action: {
-          label: "Remove",
-        },
       });
     }
   };
@@ -205,11 +256,14 @@ const Vendor_Dashboard = () => {
     }
   };
 
-  const filteredVouchers = vouchers.filter(
-    (voucher) =>
-      voucher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      voucher.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredVouchers = vouchers.filter((voucher) => {
+    const name = voucher.name ? voucher.name.toLowerCase() : "";
+    const id = voucher.id ? voucher.id.toLowerCase() : "";
+    return (
+      name.includes(searchTerm.toLowerCase()) ||
+      id.includes(searchTerm.toLowerCase())
+    );
+  });
 
   const renderCreateVoucherContent = () => {
     return (
@@ -520,95 +574,99 @@ const Vendor_Dashboard = () => {
             </div>
           </div>
 
-          {viewMode === "list" ? (
+          {filteredVouchers.length === 0 ? (
+            <div className="p-8 text-center">
+              <p className="text-muted-foreground">
+                {searchTerm
+                  ? "No vouchers match your search criteria"
+                  : "No vouchers found. Create your first voucher!"}
+              </p>
+            </div>
+          ) : viewMode === "list" ? (
             <div className="border rounded-md overflow-hidden">
               <table className="min-w-full divide-y">
                 <thead className="bg-accent">
                   <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Voucher
                     </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Value
                     </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Status
                     </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Created
                     </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Expiry
                     </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Sent/Redeemed
                     </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                    >
+                    <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-background divide-y">
                   {filteredVouchers.map((voucher) => (
-                    <tr key={voucher.id}>
+                    <tr key={voucher._id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
                           <div className="font-medium">{voucher.name}</div>
                           <div className="text-sm text-muted-foreground">
-                            {voucher.id}
+                            {voucher._id}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        ${voucher.value}
+                        ${voucher.value.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={voucher.status} />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {voucher.created}
+                        {format(
+                          new Date(voucher.createdAt),
+                          "MM/dd/yyyy hh:mm a"
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {voucher.expiry}
+                        {format(
+                          new Date(voucher.expiryDate),
+                          "MM/dd/yyyy hh:mm a"
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {voucher.sentRedeemed}
+                        {voucher.sentCount}/{voucher.redeemedCount}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="relative inline-block text-left">
+                        <div className="flex items-center justify-end space-x-2">
                           <button
-                            className="text-muted-foreground hover:text-foreground"
-                            onClick={() => {
-                              handleUpdateVoucherStatus(
-                                voucher.id,
-                                voucher.status === "active"
-                                  ? "expired"
-                                  : "active"
-                              );
-                            }}
+                            onClick={() => handleViewVoucher(voucher)}
+                            className="text-blue-400 hover:text-blue-600 transition-colors"
+                            title="View"
                           >
-                            <MoreHorizontal className="h-5 w-5" />
+                            <FaEye className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleEditVoucher(voucher)}
+                            className="text-green-400 hover:text-green-600 transition-colors"
+                            title="Edit"
+                          >
+                            <FaEdit className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedVoucher(voucher);
+                              setIsDeleteModalOpen(true);
+                            }}
+                            className="text-red-400 hover:text-red-600 transition-colors"
+                            title="Delete"
+                          >
+                            <FaTrash className="h-5 w-5" />
                           </button>
                         </div>
                       </td>
@@ -621,42 +679,67 @@ const Vendor_Dashboard = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredVouchers.map((voucher) => (
                 <div
-                  key={voucher.id}
-                  className="border rounded-md p-4 space-y-3"
+                  key={voucher._id}
+                  className="border rounded-md p-4 space-y-3 hover:shadow-md transition-shadow"
                 >
                   <div className="flex justify-between items-start">
                     <div>
                       <h3 className="font-medium">{voucher.name}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {voucher.id}
+                        {voucher._id}
                       </p>
                     </div>
                     <div>
                       <StatusBadge status={voucher.status} />
                     </div>
                   </div>
-                  <div className="text-xl font-bold">${voucher.value}</div>
+                  <div className="text-xl font-bold">
+                    ${voucher.value.toFixed(2)}
+                  </div>
                   <div className="grid grid-cols-2 text-sm gap-2">
                     <div>
                       <p className="text-muted-foreground">Created</p>
-                      <p>{voucher.created}</p>
+                      <p>
+                        {format(
+                          new Date(voucher.createdAt),
+                          "MM/dd/yyyy hh:mm a"
+                        )}
+                      </p>
                     </div>
                     <div>
                       <p className="text-muted-foreground">Expires</p>
-                      <p>{voucher.expiry}</p>
+                      <p>
+                        {format(
+                          new Date(voucher.expiryDate),
+                          "MM/dd/yyyy hh:mm a"
+                        )}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex justify-end">
+                  <div className="flex justify-end space-x-2">
                     <button
-                      className="text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        handleUpdateVoucherStatus(
-                          voucher.id,
-                          voucher.status === "active" ? "expired" : "active"
-                        );
-                      }}
+                      onClick={() => handleViewVoucher(voucher)}
+                      className="text-blue-400 hover:text-blue-600 transition-colors"
+                      title="View"
                     >
-                      <MoreHorizontal className="h-5 w-5" />
+                      <FaEye className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleEditVoucher(voucher)}
+                      className="text-green-400 hover:text-green-600 transition-colors"
+                      title="Edit"
+                    >
+                      <FaEdit className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedVoucher(voucher);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="text-red-400 hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
+                      <FaTrash className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
@@ -664,6 +747,256 @@ const Vendor_Dashboard = () => {
             </div>
           )}
         </div>
+
+        {/* View Modal */}
+        {isViewModalOpen && selectedVoucher && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">{selectedVoucher.name}</h2>
+                <button
+                  onClick={() => setIsViewModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500">Voucher ID</p>
+                  <p className="font-mono text-sm">{selectedVoucher._id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Value</p>
+                  <p>${selectedVoucher.value.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Status</p>
+                  <StatusBadge status={selectedVoucher.status} />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Description</p>
+                  <p>{selectedVoucher.description || "No description"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Campaign</p>
+                  <p>{selectedVoucher.campaign || "No campaign"}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Created</p>
+                  <p>
+                    {format(
+                      new Date(selectedVoucher.createdAt),
+                      "MM/dd/yyyy hh:mm a"
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Expires</p>
+                  <p>
+                    {format(
+                      new Date(selectedVoucher.expiryDate),
+                      "MM/dd/yyyy hh:mm a"
+                    )}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Usage</p>
+                  <p>
+                    {selectedVoucher.sentCount} sent /{" "}
+                    {selectedVoucher.redeemedCount} redeemed
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Edit Modal */}
+        {isEditModalOpen && selectedVoucher && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Edit Voucher</h2>
+                <button
+                  onClick={() => setIsEditModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateVoucher}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Name
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedVoucher.name}
+                      onChange={(e) =>
+                        setSelectedVoucher({
+                          ...selectedVoucher,
+                          name: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Value ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={selectedVoucher.value}
+                      onChange={(e) =>
+                        setSelectedVoucher({
+                          ...selectedVoucher,
+                          value: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Description
+                    </label>
+                    <textarea
+                      value={selectedVoucher.description || ""}
+                      onChange={(e) =>
+                        setSelectedVoucher({
+                          ...selectedVoucher,
+                          description: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Campaign
+                    </label>
+                    <input
+                      type="text"
+                      value={selectedVoucher.campaign || ""}
+                      onChange={(e) =>
+                        setSelectedVoucher({
+                          ...selectedVoucher,
+                          campaign: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Status
+                    </label>
+                    <select
+                      value={selectedVoucher.status}
+                      onChange={(e) =>
+                        setSelectedVoucher({
+                          ...selectedVoucher,
+                          status: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                    >
+                      <option value="active">Active</option>
+                      <option value="draft">Draft</option>
+                      <option value="expired">Expired</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Expiry Date
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={format(
+                        new Date(selectedVoucher.expiryDate),
+                        "yyyy-MM-dd'T'HH:mm"
+                      )}
+                      onChange={(e) =>
+                        setSelectedVoucher({
+                          ...selectedVoucher,
+                          expiryDate: new Date(e.target.value),
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-6 flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditModalOpen(false)}
+                    className="px-4 py-2 border rounded-md hover:bg-gray-50"
+                    disabled={isLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50"
+                    disabled={isLoading}
+                  >
+                    {isLoading ? "Saving..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {isDeleteModalOpen && selectedVoucher && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Delete Voucher</h2>
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  &times;
+                </button>
+              </div>
+
+              <p className="mb-6">
+                Are you sure you want to delete the voucher{" "}
+                <strong>"{selectedVoucher.name}"</strong>? This action cannot be
+                undone.
+              </p>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="px-4 py-2 border rounded-md hover:bg-gray-50"
+                  disabled={isLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteVoucher}
+                  className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:opacity-50"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Deleting..." : "Delete"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
