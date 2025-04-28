@@ -37,7 +37,7 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-router.post("/", protect,    createVoucher);
+router.post("/", protect, createVoucher);
 
 router.patch("/:id", updateVoucher);
 

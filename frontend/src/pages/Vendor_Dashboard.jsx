@@ -15,8 +15,9 @@ import {
   List,
   GridIcon,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
+
 const StatusBadge = ({ status }) => {
   const statusColors = {
     active: "bg-green-100 text-green-800",
@@ -34,6 +35,7 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
+
 import LogoutButton from "@/components/LogoutButton";
 import voucherService from "@/api/vouchers";
 
@@ -53,7 +55,7 @@ const Vendor_Dashboard = () => {
     value: "",
     description: "",
     campaign: "",
-    expiryDate: null,
+    expiryDate: "",
     color: "#000000",
   });
 
@@ -83,6 +85,7 @@ const Vendor_Dashboard = () => {
       icon: <SettingsIcon className="h-5 w-5" />,
     },
   ];
+
   // State for modals and selected voucher
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -98,7 +101,10 @@ const Vendor_Dashboard = () => {
 
   // Edit Voucher
   const handleEditVoucher = (voucher) => {
-    setSelectedVoucher(voucher);
+    setSelectedVoucher({
+      ...voucher,
+      expiryDate: format(new Date(voucher.expiryDate), "yyyy-MM-dd'T'HH:mm"),
+    });
     setIsEditModalOpen(true);
   };
 
@@ -123,14 +129,17 @@ const Vendor_Dashboard = () => {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const response = await voucherService.updateVoucher(selectedVoucher._id, {
-        name: selectedVoucher.name,
-        value: selectedVoucher.value,
-        status: selectedVoucher.status,
-        expiryDate: selectedVoucher.expiryDate,
-        description: selectedVoucher.description,
-        campaign: selectedVoucher.campaign,
-      });
+      const updatedVoucher = {
+        ...selectedVoucher,
+        value: Number(selectedVoucher.value),
+        expiryDate: new Date(selectedVoucher.expiryDate),
+      };
+
+      const response = await voucherService.updateVoucher(
+        selectedVoucher._id,
+        updatedVoucher
+      );
+
       setVouchers(
         vouchers.map((v) => (v._id === selectedVoucher._id ? response.data : v))
       );
@@ -148,100 +157,53 @@ const Vendor_Dashboard = () => {
     const loadVouchers = async () => {
       try {
         const data = await voucherService.getVouchers();
-        // Ensure each voucher has an ID
-        const vouchersWithIds = data.map((voucher) => {
-          if (!voucher.id) {
-            // Generate an ID for vouchers that don't have one
-            const timestamp = Date.now().toString(36);
-            const randomStr = Math.random().toString(36).substr(2, 5);
-            return {
-              ...voucher,
-              id: `V-${timestamp}-${randomStr}`.toUpperCase(),
-            };
-          }
-          return voucher;
-        });
-        setVouchers(vouchersWithIds);
+        setVouchers(data);
       } catch (error) {
-        toast("Failed to load vouchers", {
-          description: error.message,
-          action: {
-            label: "Retry",
-            onClick: loadVouchers,
-          },
-        });
+        toast.error("Failed to load vouchers");
+        console.error("Load vouchers error:", error);
       }
     };
     loadVouchers();
   }, []);
 
   const handleCreateVoucher = async (e) => {
-    if (e) e.preventDefault();
+    e.preventDefault();
 
     try {
-      // 1) Validate required fields
-      if (!newVoucher.name || !newVoucher.value) {
-        toast("Please fill in all required fields!");
+      // Validate required fields
+      if (!newVoucher.name || !newVoucher.value || !newVoucher.expiryDate) {
+        toast.error("Please fill in all required fields!");
         return;
       }
 
-      // 2) Generate a unique ID (using timestamp + random string)
-      const timestamp = Date.now().toString(36);
-      const randomStr = Math.random().toString(36).substr(2, 5);
-      const voucherId = `V-${timestamp}-${randomStr}`.toUpperCase();
-
-      // 4) Build the voucher object with the generated ID
-      const voucherWithId = {
-        id: voucherId,
-        name: newVoucher.name,
-        value: Number.parseFloat(newVoucher.value),
-        description: newVoucher.description,
-        campaign: newVoucher.campaign,
-        created: format(new Date(), "MM/dd/yyyy hh:mm a"), // Formatted date string
-        expiryDate: format(
-          new Date(newVoucher.expiryDate),
-          "MM/dd/yyyy hh:mm a"
-        ),
-        sentRedeemed: "0/0",
+      const voucherData = {
+        ...newVoucher,
+        value: Number(newVoucher.value),
+        expiryDate: new Date(newVoucher.expiryDate),
         status: "draft",
-        color: newVoucher.color,
         logo: previewLogo,
       };
 
-      // 5) Send to backend
-      await voucherService.createVoucher(voucherWithId);
+      const response = await voucherService.createVoucher(voucherData);
 
-      // 6) Update local state
-      setVouchers((prev) => [...prev, voucherWithId]);
+      setVouchers([...vouchers, response.data]);
 
-      // 7) Show toast
-      toast("Voucher Created", {
-        description: `${
-          newVoucher.name
-        } created on ${new Date().toLocaleString()}`,
-        action: { label: "Remove" },
-      });
+      toast.success("Voucher created successfully");
 
-      // 8) Reset form
+      // Reset form
       setNewVoucher({
         name: "",
         value: "",
         description: "",
         campaign: "",
-        expiryDate: null,
-        color: "#3b82f6",
+        expiryDate: "",
+        color: "#000000",
       });
       setPreviewLogo(null);
       setCurrentPage("vouchers");
-      setActiveTab("active");
     } catch (error) {
-      console.error("Error creating voucher:", error);
-      toast("Voucher Creation Failed", {
-        description: `An error occurred: ${
-          error.response?.data?.message || error.message
-        }`,
-        action: { label: "Remove" },
-      });
+      toast.error("Failed to create voucher");
+      console.error("Create voucher error:", error);
     }
   };
 
@@ -257,11 +219,12 @@ const Vendor_Dashboard = () => {
   };
 
   const filteredVouchers = vouchers.filter((voucher) => {
-    const name = voucher.name ? voucher.name.toLowerCase() : "";
-    const id = voucher.id ? voucher.id.toLowerCase() : "";
+    if (!voucher) return false; // Explicit check for undefined or null voucher
+
+    const searchLower = searchTerm.toLowerCase();
     return (
-      name.includes(searchTerm.toLowerCase()) ||
-      id.includes(searchTerm.toLowerCase())
+      voucher.name?.toLowerCase().includes(searchLower) ||
+      voucher._id?.toLowerCase().includes(searchLower)
     );
   });
 
@@ -1242,7 +1205,14 @@ const Vendor_Dashboard = () => {
       </div>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto p-6">{renderContent()}</main>
+      <main className="flex-1 overflow-y-auto p-6">
+        {currentPage === "dashboard" && renderDashboardContent()}
+        {currentPage === "createVoucher" && renderCreateVoucherContent()}
+        {currentPage === "vouchers" && renderVouchersContent()}
+        {currentPage === "distribution" && renderDistributionContent()}
+        {currentPage === "analytics" && renderAnalyticsContent()}
+        {currentPage === "settings" && renderSettingsContent()}
+      </main>
     </div>
   );
 };

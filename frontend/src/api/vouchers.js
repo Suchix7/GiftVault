@@ -23,7 +23,7 @@ const getVouchers = async (params, token) => {
     },
     params,
   };
-
+  console.log(token);
   const response = await axios.get(API_URL, config);
   return response.data;
 };
@@ -36,7 +36,9 @@ const updateVoucher = async (voucherId, voucherData, token) => {
     },
   };
 
-  const response = await axios.put(
+  console.log(voucherId, voucherData, token);
+
+  const response = await axios.patch(
     `${API_URL}/${voucherId}`,
     voucherData,
     config
@@ -55,7 +57,6 @@ const deleteVoucher = async (voucherId, token) => {
   const response = await axios.delete(`${API_URL}/${voucherId}`, config);
   return response.data;
 };
-
 // Update voucher status
 const updateVoucherStatus = async (voucherId, status, token) => {
   const config = {
