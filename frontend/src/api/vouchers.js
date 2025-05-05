@@ -10,7 +10,6 @@ const createVoucher = async (voucherData, token) => {
     },
     withCredentials: true,
   };
-
   const response = await axios.post(API_URL, voucherData, config);
   return response.data;
 };
@@ -23,7 +22,6 @@ const getVouchers = async (params, token) => {
     },
     params,
   };
-  console.log(token);
   const response = await axios.get(API_URL, config);
   return response.data;
 };
@@ -35,9 +33,7 @@ const updateVoucher = async (voucherId, voucherData, token) => {
       Authorization: `Bearer ${token}`,
     },
   };
-
-  console.log(voucherId, voucherData, token);
-
+  console.log("Updating voucher with ID:", token);
   const response = await axios.patch(
     `${API_URL}/${voucherId}`,
     voucherData,

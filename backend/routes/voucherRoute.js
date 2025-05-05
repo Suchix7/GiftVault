@@ -6,7 +6,6 @@ import {
   getVouchers,
   updateVoucher,
   deleteVoucher,
-  updateVoucherStatus,
 } from "../controllers/voucherController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -56,6 +55,6 @@ router.delete("/:id", async (req, res) => {
 });
 
 // Update voucher status
-router.patch("/:id/status", updateVoucherStatus);
+// router.patch("/:id/status", updateVoucherStatus);
 
 export default router;

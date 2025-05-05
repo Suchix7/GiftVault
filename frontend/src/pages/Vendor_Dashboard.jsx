@@ -52,6 +52,7 @@ const Vendor_Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [viewMode, setViewMode] = useState("list");
   const [searchTerm, setSearchTerm] = useState("");
+  const [voucherUpdated, setVoucherUpdated] = useState(false);
 
   // Voucher state
   const [vouchers, setVouchers] = useState([]);
@@ -148,9 +149,12 @@ const Vendor_Dashboard = () => {
         updatedVoucher
       );
 
-      setVouchers(
-        vouchers.map((v) => (v._id === selectedVoucher._id ? response.data : v))
+      setVouchers((prevVouchers) =>
+        prevVouchers.map((v) =>
+          v._id === selectedVoucher._id ? response.data : v
+        )
       );
+      setVoucherUpdated((prev) => !prev); // trigger re-fetch if needed
       toast.success("Voucher updated successfully");
       setIsEditModalOpen(false);
     } catch (error) {
@@ -165,7 +169,7 @@ const Vendor_Dashboard = () => {
     const loadVouchers = async () => {
       setIsLoading(true);
       try {
-        const data = await voucherService.getVouchers(); // Fetch the vouchers
+        const data = await voucherService.getVouchers();
         setVouchers(data);
       } catch (error) {
         toast.error("Failed to load vouchers");
@@ -175,8 +179,8 @@ const Vendor_Dashboard = () => {
       }
     };
 
-    loadVouchers(); // Call the function to load vouchers
-  }, [voucherCreated]); // Dependency array includes voucherCreated
+    loadVouchers();
+  }, [voucherCreated, voucherUpdated]); // include both
 
   const handleCreateVoucher = async (e) => {
     e.preventDefault();

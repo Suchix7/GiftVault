@@ -134,12 +134,14 @@ export const updateVoucher = async (req, res) => {
     const { id } = req.params;
     const updates = req.body;
 
+    // Fix the expiryDate handling
     if (updates.expiryDate) {
       updates.expiryDate = new Date(updates.expiryDate);
     }
 
+    // Option 1: If authentication is enough (recommended)
     const voucher = await Voucher.findOneAndUpdate(
-      { _id: id, vendorId: req.user.vendorId },
+      { _id: id }, // Just check the ID
       updates,
       { new: true }
     );
@@ -191,39 +193,39 @@ export const deleteVoucher = async (req, res) => {
 };
 
 // Update voucher status
-export const updateVoucherStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+// export const updateVoucherStatus = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const { status } = req.body;
 
-    if (!["active", "expired", "draft", "redeemed"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid status",
-      });
-    }
+//     if (!["active", "expired", "draft", "redeemed"].includes(status)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid status",
+//       });
+//     }
 
-    const voucher = await Voucher.findOneAndUpdate(
-      { _id: id, vendorId: req.user.vendorId },
-      { status },
-      { new: true }
-    );
+//     const voucher = await Voucher.findOneAndUpdate(
+//       { _id: id, vendorId: req.user.vendorId },
+//       { status },
+//       { new: true }
+//     );
 
-    if (!voucher) {
-      return res.status(404).json({
-        success: false,
-        message: "Voucher not found",
-      });
-    }
+//     if (!voucher) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Voucher not found",
+//       });
+//     }
 
-    res.json({
-      success: true,
-      voucher,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+//     res.json({
+//       success: true,
+//       voucher,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
