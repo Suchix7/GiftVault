@@ -15,6 +15,7 @@ import Forbidden from "./pages/Forbidden";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Admin_Dashboards from "./pages/Admin_Dashboard copy";
 import { Toaster } from "sonner";
+import Customer_Dashboards from "./pages/Customer_Dashboard_copy";
 
 const App = () => {
   return (
@@ -54,6 +55,7 @@ const App = () => {
             </ProtectedRoute>
           }
         />
+        <Route path="/customer" element={<Customer_Dashboards/>}></Route>
         <Route path="/vendor" element={<Vendor_Dashboards />}></Route>
         <Route path="/forbidden" element={<Forbidden />} />
       </Routes>
