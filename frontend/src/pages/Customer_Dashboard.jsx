@@ -10,59 +10,21 @@ import { Gift, History, User } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import LogoutButton from "@/components/LogoutButton";
 import { useState, useEffect } from "react";
+import api from "@/api/axios";
 
 export default function CustomerDashboard() {
   const [activeView, setActiveView] = useState("vouchers");
   const [activeTab, setActiveTab] = useState("active");
   const [vouchers, setVouchers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [vendors, setVendors] = useState({});
 
   useEffect(() => {
     const fetchVouchers = async () => {
       try {
-        // Replace with your actual API call
-        const response = await fetch("/vouchers");
-        const data = await response.json();
-        setVouchers(data);
-
-        // // Mock data - remove when using real API
-        // const mockVouchers = [
-        //   {
-        //     id: "1",
-        //     amount: 50,
-        //     merchant: "Acme Gift Co",
-        //     description: "Holiday Special - Use for any holiday purchase",
-        //     expiryDate: "2025-05-02",
-        //     status: "active",
-        //     code: "GIFT50",
-        //   },
-        //   {
-        //     id: "2",
-        //     amount: 25,
-        //     merchant: "Premium Vouchers Ltd",
-        //     description: "Birthday Gift - Happy Birthday!",
-        //     expiryDate: "2025-06-01",
-        //     status: "active",
-        //   },
-        //   {
-        //     id: "3",
-        //     amount: 100,
-        //     merchant: "Luxury Gifts",
-        //     description: "Anniversary Special - Celebrate your day",
-        //     expiryDate: "2024-12-31",
-        //     status: "expired",
-        //   },
-        //   {
-        //     id: "4",
-        //     amount: 75,
-        //     merchant: "Global Gifts",
-        //     description: "Summer Sale - Limited time offer",
-        //     expiryDate: "2024-08-15",
-        //     status: "redeemed",
-        //   },
-        // ];
-
-        // setVouchers(mockVouchers);
+        const response = await api.get("/vouchers/public/active");
+        setVouchers(response.data.vouchers || []);
+        console.log("Fetched vouchers:", response.data.vouchers);
       } catch (error) {
         console.error("Error fetching vouchers:", error);
       } finally {
@@ -73,6 +35,22 @@ export default function CustomerDashboard() {
     fetchVouchers();
   }, []);
 
+  useEffect(() => {
+    const fetchVendors = async () => {
+      try {
+        const response = await api.get("/users/vendors/all");
+        const vendorMap = {};
+        (response.data.users || []).forEach((v) => {
+          vendorMap[v._id] = v.name;
+        });
+        setVendors(vendorMap);
+      } catch (error) {
+        console.error("Error fetching vendors:", error);
+      }
+    };
+    fetchVendors();
+  }, []);
+
   const filteredVouchers = vouchers.filter(
     (voucher) => voucher.status === activeTab
   );
@@ -81,6 +59,27 @@ export default function CustomerDashboard() {
     const options = { year: "numeric", month: "long", day: "numeric" };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
+
+  // Helper to check if a voucher is expired
+  const isVoucherExpired = (voucher) => {
+    if (voucher.status === "expired") return true;
+    if (!voucher.expiryDate) return false;
+    const expiry = new Date(voucher.expiryDate);
+    const now = new Date();
+    return expiry < now;
+  };
+
+  const activeVouchers = vouchers.filter(
+    (voucher) => voucher.status === "active" && !isVoucherExpired(voucher)
+  );
+
+  const expiredVouchers = vouchers.filter((voucher) =>
+    isVoucherExpired(voucher)
+  );
+
+  const redeemedVouchers = vouchers.filter(
+    (voucher) => voucher.status === "redeemed"
+  );
 
   const VoucherCards = ({ vouchers, status }) => {
     if (vouchers.length === 0) {
@@ -93,54 +92,92 @@ export default function CustomerDashboard() {
 
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {vouchers.map((voucher) => (
-          <Card
-            key={voucher.id}
-            className="border-border hover:shadow-md transition-shadow"
-          >
-            <CardHeader className="p-4 pb-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Gift className="h-5 w-5 text-primary" />
-                  <span className="font-bold">${voucher.amount}</span>
-                </div>
-                <Badge variant="secondary" className="text-xs">
-                  {voucher.status.charAt(0).toUpperCase() +
-                    voucher.status.slice(1)}
-                </Badge>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                {voucher.merchant}
-              </p>
-            </CardHeader>
+        {vouchers.map((voucher) => {
+          const buttonColor = voucher.color || "#2563eb"; // fallback to blue-600
+          const textColor = "#fff";
+          return (
+            <div
+              key={voucher._id}
+              className="rounded-lg overflow-hidden"
+              style={{ backgroundColor: voucher.color || "#1e293b" }}
+            >
+              <div className="p-6">
+                <div className="bg-black/10 backdrop-blur-sm rounded-lg p-6 space-y-4">
+                  <div className="flex flex-col items-center mb-4">
+                    <div className="h-16 w-16 rounded-md overflow-hidden bg-white/90 p-2 flex items-center justify-center">
+                      {voucher.logo ? (
+                        <img
+                          src={voucher.logo}
+                          alt="Vendor logo"
+                          className="h-full w-full object-contain"
+                        />
+                      ) : (
+                        <Gift className="h-10 w-10 text-primary" />
+                      )}
+                    </div>
+                    <div className="mt-2 text-white text-sm font-medium">
+                      {vendors[voucher.vendorId] || "Vendor"}
+                    </div>
+                  </div>
 
-            <CardContent className="p-4 pt-0">
-              <p className="text-sm line-clamp-2">{voucher.description}</p>
-              <div className="flex items-center text-xs text-muted-foreground mt-2">
-                <span className="mr-1">📅</span>
-                Expires: {formatDate(voucher.expiryDate)}
-              </div>
-              {voucher.code && (
-                <div className="mt-3">
-                  <p className="text-xs text-muted-foreground">Code:</p>
-                  <p className="font-mono text-sm bg-muted px-2 py-1 rounded">
-                    {voucher.code}
-                  </p>
-                </div>
-              )}
-            </CardContent>
+                  <div className="text-center space-y-1">
+                    <h3 className="text-xl font-bold text-white">
+                      {voucher.name}
+                    </h3>
+                    <p className="text-white/80 text-sm">
+                      {voucher.description ||
+                        "Voucher description will appear here"}
+                    </p>
+                  </div>
 
-            <CardFooter className="p-4 pt-0">
-              <Button
-                size="sm"
-                className="w-full"
-                disabled={voucher.status !== "active"}
-              >
-                {voucher.status === "active" ? "Redeem" : "Already Redeemed"}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+                  <div className="flex justify-center">
+                    <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 text-white font-bold text-2xl">
+                      ${voucher.value}
+                    </div>
+                  </div>
+
+                  {voucher.expiryDate && (
+                    <div className="text-center text-white/80 text-sm">
+                      Valid until {formatDate(voucher.expiryDate)}
+                    </div>
+                  )}
+
+                  {voucher.code && (
+                    <div className="pt-4 border-t border-white/20 text-center">
+                      <p className="text-white/80 text-xs">Code:</p>
+                      <p className="font-mono text-sm bg-white/10 px-2 py-1 rounded text-white">
+                        {voucher.code}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t border-white/20 text-center">
+                    <p className="text-white/80 text-xs">
+                      Scan or present this voucher at checkout
+                    </p>
+                  </div>
+
+                  {/* Redeem Button */}
+                  {status !== "expired" && (
+                    <div className="pt-4 flex justify-center">
+                      <Button
+                        style={{
+                          backgroundColor: buttonColor,
+                          color: textColor,
+                          border: "none",
+                        }}
+                        className="w-full font-semibold shadow hover:opacity-90"
+                        disabled={voucher.status !== "active"}
+                      >
+                        Redeem
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     );
   };
@@ -227,7 +264,7 @@ export default function CustomerDashboard() {
                 {isLoading ? (
                   <p>Loading vouchers...</p>
                 ) : (
-                  <VoucherCards vouchers={filteredVouchers} status="active" />
+                  <VoucherCards vouchers={activeVouchers} status="active" />
                 )}
               </TabsContent>
 
@@ -238,7 +275,7 @@ export default function CustomerDashboard() {
                 {isLoading ? (
                   <p>Loading vouchers...</p>
                 ) : (
-                  <VoucherCards vouchers={filteredVouchers} status="redeemed" />
+                  <VoucherCards vouchers={redeemedVouchers} status="redeemed" />
                 )}
               </TabsContent>
 
@@ -249,7 +286,7 @@ export default function CustomerDashboard() {
                 {isLoading ? (
                   <p>Loading vouchers...</p>
                 ) : (
-                  <VoucherCards vouchers={filteredVouchers} status="expired" />
+                  <VoucherCards vouchers={expiredVouchers} status="expired" />
                 )}
               </TabsContent>
             </Tabs>

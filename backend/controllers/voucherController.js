@@ -192,6 +192,24 @@ export const deleteVoucher = async (req, res) => {
   }
 };
 
+// Public: Get all active vouchers (no auth required)
+export const getAllActiveVouchers = async (req, res) => {
+  try {
+    const vouchers = await Voucher.find({ status: "active" }).sort({
+      createdAt: -1,
+    });
+    res.json({
+      success: true,
+      vouchers,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 // Update voucher status
 // export const updateVoucherStatus = async (req, res) => {
 //   try {

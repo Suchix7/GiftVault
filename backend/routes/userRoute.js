@@ -53,6 +53,18 @@ router.patch("/approve/:vendorId", async (req, res) => {
     res.status(500).json({ message: "Internal Server Error" });
   }
 });
+
+// New route: Get only vendors, returns { users: [...] }
+router.get("/vendors/all", async (req, res) => {
+  try {
+    const users = await User.find({ role: "vendor" });
+    res.json({ users });
+  } catch (error) {
+    console.error("Error fetching vendors:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 router.delete("/:id", async (req, res) => {
   try {
     const user = await User.findByIdAndDelete(req.params.id);
