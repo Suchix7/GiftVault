@@ -132,7 +132,7 @@ export default function CustomerDashboard() {
 
                   <div className="flex justify-center">
                     <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 text-white font-bold text-2xl">
-                      ${voucher.value}
+                      Rs. {voucher.value} Off
                     </div>
                   </div>
 
@@ -141,21 +141,6 @@ export default function CustomerDashboard() {
                       Valid until {formatDate(voucher.expiryDate)}
                     </div>
                   )}
-
-                  {voucher.code && (
-                    <div className="pt-4 border-t border-white/20 text-center">
-                      <p className="text-white/80 text-xs">Code:</p>
-                      <p className="font-mono text-sm bg-white/10 px-2 py-1 rounded text-white">
-                        {voucher.code}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="pt-4 border-t border-white/20 text-center">
-                    <p className="text-white/80 text-xs">
-                      Scan or present this voucher at checkout
-                    </p>
-                  </div>
 
                   {/* Redeem Button */}
                   {status !== "expired" && (
