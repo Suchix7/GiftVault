@@ -35,6 +35,34 @@ const userSchema = new mongoose.Schema(
         return this.role === "user" || this.role === "admin"; // Auto-approve users and admins
       },
     },
+    referralCode: {
+      type: String,
+      unique: true,
+      sparse: true,
+    },
+    referredBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+    bonusPoints: {
+      type: Number,
+      default: 0,
+    },
+    smsOtpEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    phoneVerified: {
+      type: Boolean,
+      default: false,
+    },
+    lastOtpSent: {
+      type: Date,
+    },
+    otpAttempts: {
+      type: Number,
+      default: 0,
+    },
   },
   {
     timestamps: true,
@@ -50,9 +78,28 @@ userSchema.pre("save", async function (next) {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
+// MODIFIED: Generate referral code before saving
+userSchema.pre("save", function (next) {
+  if (this.isNew && !this.referralCode) {
+    // Generate a unique 8-character referral code
+    this.referralCode = Math.random()
+      .toString(36)
+      .substring(2, 10)
+      .toUpperCase();
+  }
+  next();
+});
+
 // Method to compare passwords
 userSchema.methods.matchPassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
+};
+
+// MODIFIED: Add method to handle bonus points
+userSchema.methods.addBonusPoints = async function (points) {
+  this.bonusPoints += points;
+  await this.save();
+  return this.bonusPoints;
 };
 
 export const User = mongoose.models.User || mongoose.model("User", userSchema);

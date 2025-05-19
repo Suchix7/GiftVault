@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import LogoutButton from "@/components/LogoutButton";
 import { useState, useEffect } from "react";
 import api from "@/api/axios";
+import OtpVerificationModal from "@/components/OtpVerificationModal";
 
 export default function CustomerDashboard() {
   const [activeView, setActiveView] = useState("vouchers");
@@ -18,6 +19,10 @@ export default function CustomerDashboard() {
   const [vouchers, setVouchers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [vendors, setVendors] = useState({});
+  const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
+  const [selectedVoucherForRedemption, setSelectedVoucherForRedemption] =
+    useState(null);
+  const [redemptionCode, setRedemptionCode] = useState(null);
 
   useEffect(() => {
     const fetchVouchers = async () => {
@@ -81,6 +86,17 @@ export default function CustomerDashboard() {
     (voucher) => voucher.status === "redeemed"
   );
 
+  const handleRedeemClick = (voucher) => {
+    setSelectedVoucherForRedemption(voucher);
+    setIsOtpModalOpen(true);
+  };
+
+  const handleOtpSuccess = (code) => {
+    setRedemptionCode(code);
+    // You might want to update the voucher status here
+    // or make an API call to mark it as redeemed
+  };
+
   const VoucherCards = ({ vouchers, status }) => {
     if (vouchers.length === 0) {
       return (
@@ -93,8 +109,10 @@ export default function CustomerDashboard() {
     return (
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {vouchers.map((voucher) => {
-          const buttonColor = voucher.color || "#2563eb"; // fallback to blue-600
+          const buttonColor = voucher.color || "#2563eb";
           const textColor = "#fff";
+          const isSelected = selectedVoucherForRedemption?._id === voucher._id;
+
           return (
             <div
               key={voucher._id}
@@ -142,20 +160,37 @@ export default function CustomerDashboard() {
                     </div>
                   )}
 
-                  {/* Redeem Button */}
+                  {/* Modified Redeem Button */}
                   {status !== "expired" && (
                     <div className="pt-4 flex justify-center">
-                      <Button
-                        style={{
-                          backgroundColor: buttonColor,
-                          color: textColor,
-                          border: "none",
-                        }}
-                        className="w-full font-semibold shadow hover:opacity-90"
-                        disabled={voucher.status !== "active"}
-                      >
-                        Redeem
-                      </Button>
+                      {isSelected && redemptionCode ? (
+                        <div className="text-center">
+                          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 mb-2">
+                            <p className="text-white text-sm mb-1">
+                              Your Redemption Code:
+                            </p>
+                            <p className="text-white text-xl font-mono font-bold tracking-wider">
+                              {redemptionCode}
+                            </p>
+                          </div>
+                          <p className="text-white/80 text-sm">
+                            Present this code at checkout
+                          </p>
+                        </div>
+                      ) : (
+                        <Button
+                          style={{
+                            backgroundColor: buttonColor,
+                            color: textColor,
+                            border: "none",
+                          }}
+                          className="w-full font-semibold shadow hover:opacity-90"
+                          disabled={voucher.status !== "active"}
+                          onClick={() => handleRedeemClick(voucher)}
+                        >
+                          Redeem
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -302,6 +337,17 @@ export default function CustomerDashboard() {
           </div>
         )}
       </div>
+
+      {/* Add OTP Modal */}
+      {isOtpModalOpen && (
+        <OtpVerificationModal
+          onClose={() => {
+            setIsOtpModalOpen(false);
+            setSelectedVoucherForRedemption(null);
+          }}
+          onSuccess={handleOtpSuccess}
+        />
+      )}
     </div>
   );
 }
