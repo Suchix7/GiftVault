@@ -22,7 +22,7 @@ export default function CustomerDashboard() {
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [selectedVoucherForRedemption, setSelectedVoucherForRedemption] =
     useState(null);
-  const [redemptionCode, setRedemptionCode] = useState(null);
+  const [redemptionCodes, setRedemptionCodes] = useState({}); // Map to store codes for each voucher
 
   useEffect(() => {
     const fetchVouchers = async () => {
@@ -92,9 +92,22 @@ export default function CustomerDashboard() {
   };
 
   const handleOtpSuccess = (code) => {
-    setRedemptionCode(code);
-    // You might want to update the voucher status here
-    // or make an API call to mark it as redeemed
+    if (selectedVoucherForRedemption) {
+      // Store the redemption code for this specific voucher
+      setRedemptionCodes((prev) => ({
+        ...prev,
+        [selectedVoucherForRedemption._id]: code,
+      }));
+
+      // Update the voucher status in the local state
+      setVouchers((prevVouchers) =>
+        prevVouchers.map((v) =>
+          v._id === selectedVoucherForRedemption._id
+            ? { ...v, status: "redeemed" }
+            : v
+        )
+      );
+    }
   };
 
   const VoucherCards = ({ vouchers, status }) => {
@@ -111,7 +124,7 @@ export default function CustomerDashboard() {
         {vouchers.map((voucher) => {
           const buttonColor = voucher.color || "#2563eb";
           const textColor = "#fff";
-          const isSelected = selectedVoucherForRedemption?._id === voucher._id;
+          const hasRedemptionCode = redemptionCodes[voucher._id];
 
           return (
             <div
@@ -160,17 +173,17 @@ export default function CustomerDashboard() {
                     </div>
                   )}
 
-                  {/* Modified Redeem Button */}
+                  {/* Modified Redeem/Show Voucher Button */}
                   {status !== "expired" && (
                     <div className="pt-4 flex justify-center">
-                      {isSelected && redemptionCode ? (
+                      {hasRedemptionCode ? (
                         <div className="text-center">
                           <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 mb-2">
                             <p className="text-white text-sm mb-1">
                               Your Redemption Code:
                             </p>
                             <p className="text-white text-xl font-mono font-bold tracking-wider">
-                              {redemptionCode}
+                              {redemptionCodes[voucher._id]}
                             </p>
                           </div>
                           <p className="text-white/80 text-sm">
@@ -203,52 +216,51 @@ export default function CustomerDashboard() {
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
+    <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <div className="w-[205px] border-r border-border bg-foreground text-background flex flex-col">
-        <div className="p-4 flex items-center gap-2 border-b border-border">
-          <Gift className="h-5 w-5" />
-          <span className="font-semibold">GiftVault</span>
+      <div className="w-64 border-r bg-card p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Gift Vault</h2>
+          <LogoutButton />
         </div>
 
-        <nav className="flex flex-col flex-1">
-          <Button
-            variant="ghost"
-            className={`justify-start rounded-none h-12 px-4 ${
-              activeView === "vouchers" ? "bg-accent text-black" : ""
-            }`}
+        <nav className="space-y-2">
+          <button
             onClick={() => setActiveView("vouchers")}
-          >
-            <Gift className="h-5 w-5 mr-2" />
-            My Vouchers
-          </Button>
-          <Button
-            variant="ghost"
-            className={`justify-start rounded-none h-12 px-4 ${
-              activeView === "history" ? "bg-accent text-black" : ""
+            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              activeView === "vouchers"
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-accent"
             }`}
-            onClick={() => setActiveView("history")}
           >
-            <History className="h-5 w-5 mr-2" />
-            History
-          </Button>
-          <Button
-            variant="ghost"
-            className={`justify-start rounded-none h-12 px-4 ${
-              activeView === "profile" ? "bg-accent text-black" : ""
-            }`}
-            onClick={() => setActiveView("profile")}
-          >
-            <User className="h-5 w-5 mr-2" />
-            Profile
-          </Button>
-        </nav>
+            <Gift className="h-5 w-5" />
+            <span>My Vouchers</span>
+          </button>
 
-        <div className="p-4 border-t">
-          <div className="mt-auto">
-            <LogoutButton />
-          </div>
-        </div>
+          <button
+            onClick={() => setActiveView("history")}
+            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              activeView === "history"
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-accent"
+            }`}
+          >
+            <History className="h-5 w-5" />
+            <span>History</span>
+          </button>
+
+          <button
+            onClick={() => setActiveView("profile")}
+            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+              activeView === "profile"
+                ? "bg-primary text-primary-foreground"
+                : "hover:bg-accent"
+            }`}
+          >
+            <User className="h-5 w-5" />
+            <span>Profile</span>
+          </button>
+        </nav>
       </div>
 
       {/* Main Content */}
