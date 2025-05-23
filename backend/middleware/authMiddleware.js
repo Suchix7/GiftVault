@@ -3,44 +3,75 @@ import { JWT_SECRET } from "../config.js";
 import { User } from "../models/UserModel.js";
 
 // authMiddleware.js
-export const protect = async (req, res, next) => {
-  let token = req.cookies.token;
-  console.log("[Auth] Received cookies:", req.cookies);
-  console.log("[Auth] Token from cookie:", token);
-  console.log("[Auth] JWT_SECRET:", JWT_SECRET);
-
-  if (!token) {
-    console.log("[Auth] No token found");
-    return res.status(401).json({ message: "Not authorized" });
-  }
-
+const protect = async (req, res, next) => {
   try {
-    console.log("[Auth] Attempting to verify token...");
-    const decoded = jwt.verify(token, JWT_SECRET);
-    console.log("[Auth] Decoded token:", decoded);
-    console.log("[Auth] Looking for user with ID:", decoded.id);
+    let token;
 
-    const user = await User.findById(decoded.id).select("-password");
-    console.log("[Auth] Found user:", user ? "yes" : "no");
-    if (user) {
-      console.log("[Auth] User details:", {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
+    // Check for token in Authorization header
+    if (req.headers.authorization?.startsWith("Bearer")) {
+      token = req.headers.authorization.split(" ")[1];
+    }
+    // Check for token in cookies as fallback
+    else if (req.cookies?.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, no token provided",
       });
     }
 
-    if (!user) {
-      console.log("[Auth] User not found in database");
-      return res.status(401).json({ message: "User not found" });
-    }
+    try {
+      // Verify token
+      const decoded = jwt.verify(token, JWT_SECRET);
 
-    req.user = user;
-    next();
+      // Get user from database
+      const user = await User.findById(decoded.id).select("-password");
+
+      if (!user) {
+        return res.status(401).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      // Add user to request object
+      req.user = user;
+      next();
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      return res.status(401).json({
+        success: false,
+        message: "Not authorized, token verification failed",
+      });
+    }
   } catch (error) {
-    console.error("[Auth] Token verification failed:", error.message);
-    console.error("[Auth] Full error:", error);
-    return res.status(401).json({ message: "Not authorized" });
+    console.error("Auth middleware error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error in auth middleware",
+    });
   }
 };
+
+const isVendor = (req, res, next) => {
+  if (!req.user) {
+    return res.status(401).json({
+      success: false,
+      message: "Not authenticated",
+    });
+  }
+
+  if (req.user.role !== "vendor") {
+    return res.status(403).json({
+      success: false,
+      message: "Not authorized as vendor",
+    });
+  }
+
+  next();
+};
+
+export { protect, isVendor };

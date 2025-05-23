@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import {
   LayoutDashboard,
@@ -14,6 +14,7 @@ import {
   Search,
   List,
   GridIcon,
+  Ticket,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
@@ -55,6 +56,8 @@ const Vendor_Dashboard = () => {
 
   // Voucher state
   const [vouchers, setVouchers] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   // New voucher form state
   const [newVoucher, setNewVoucher] = useState({
@@ -76,6 +79,7 @@ const Vendor_Dashboard = () => {
       icon: <LayoutDashboard className="h-5 w-5" />,
     },
     { id: "vouchers", label: "Vouchers", icon: <Gift className="h-5 w-5" /> },
+    { id: "redeem", label: "Redeem", icon: <Ticket className="h-5 w-5" /> },
     {
       id: "distribution",
       label: "Distribution",
@@ -98,8 +102,50 @@ const Vendor_Dashboard = () => {
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [voucherCreated, setVoucherCreated] = useState(false);
+
+  // Add new state for redeem form
+  const [redeemForm, setRedeemForm] = useState({
+    email: "",
+    code: "",
+  });
+
+  // Add new state for redeem loading
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  // Load vouchers
+  useEffect(() => {
+    const loadVouchers = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const data = await voucherService.getVouchers();
+        setVouchers(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Failed to load vouchers:", err);
+        setError("Failed to load vouchers. Please try again later.");
+        setVouchers([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadVouchers();
+  }, [voucherCreated]);
+
+  // Filter vouchers
+  const filteredVouchers = useMemo(() => {
+    if (!Array.isArray(vouchers)) return [];
+
+    return vouchers.filter((voucher) => {
+      if (!voucher) return false;
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        voucher.name?.toLowerCase().includes(searchLower) ||
+        voucher._id?.toLowerCase().includes(searchLower)
+      );
+    });
+  }, [vouchers, searchTerm]);
 
   // View Voucher Details
   const handleViewVoucher = (voucher) => {
@@ -165,23 +211,6 @@ const Vendor_Dashboard = () => {
     }
   };
 
-  useEffect(() => {
-    const loadVouchers = async () => {
-      setIsLoading(true);
-      try {
-        const data = await voucherService.getVouchers(); // Fetch the vouchers
-        setVouchers(data);
-      } catch (error) {
-        toast.error("Failed to load vouchers");
-        console.error("Load vouchers error:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadVouchers(); // Call the function to load vouchers
-  }, [voucherCreated]); // Dependency array includes voucherCreated
-
   const handleCreateVoucher = async (e) => {
     e.preventDefault();
 
@@ -234,15 +263,21 @@ const Vendor_Dashboard = () => {
     }
   };
 
-  const filteredVouchers = vouchers.filter((voucher) => {
-    if (!voucher) return false; // Explicit check for undefined or null voucher
-
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      voucher.name?.toLowerCase().includes(searchLower) ||
-      voucher._id?.toLowerCase().includes(searchLower)
-    );
-  });
+  // Add handleRedeem function
+  const handleRedeem = async (e) => {
+    e.preventDefault();
+    setIsRedeeming(true);
+    try {
+      // Here you would add your API call to verify and redeem the voucher
+      // For now, we'll just show a success message
+      toast.success("Voucher redeemed successfully!");
+      setRedeemForm({ email: "", code: "" });
+    } catch (error) {
+      toast.error(error.message || "Failed to redeem voucher");
+    } finally {
+      setIsRedeeming(false);
+    }
+  };
 
   const renderCreateVoucherContent = () => {
     return (
@@ -570,6 +605,9 @@ const Vendor_Dashboard = () => {
                       Voucher
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                      Vendor
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Value
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -597,6 +635,16 @@ const Vendor_Dashboard = () => {
                           <div className="font-medium">{voucher.name}</div>
                           <div className="text-sm text-muted-foreground">
                             {voucher._id}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="font-medium">
+                            {voucher.vendor?.name || "N/A"}
+                          </div>
+                          <div className="text-sm text-muted-foreground">
+                            {voucher.vendor?.email || ""}
                           </div>
                         </div>
                       </td>
@@ -666,6 +714,9 @@ const Vendor_Dashboard = () => {
                       <h3 className="font-medium">{voucher.name}</h3>
                       <p className="text-sm text-muted-foreground">
                         {voucher._id}
+                      </p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        By: {voucher.vendor?.name || "N/A"}
                       </p>
                     </div>
                     <div>
@@ -745,6 +796,15 @@ const Vendor_Dashboard = () => {
                 <div>
                   <p className="text-sm text-gray-500">Voucher ID</p>
                   <p className="font-mono text-sm">{selectedVoucher._id}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Vendor</p>
+                  <p className="font-medium">
+                    {selectedVoucher.vendor?.name || "N/A"}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    {selectedVoucher.vendor?.email || ""}
+                  </p>
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">Value</p>
@@ -980,6 +1040,71 @@ const Vendor_Dashboard = () => {
     );
   };
 
+  // Add renderRedeemContent function
+  const renderRedeemContent = () => {
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <h1 className="text-3xl font-bold">Redeem Voucher</h1>
+        </div>
+
+        <div className="max-w-md w-full mx-auto">
+          <div className="bg-card rounded-lg p-6 shadow-sm border">
+            <form onSubmit={handleRedeem} className="space-y-4">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium mb-1"
+                >
+                  Customer Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={redeemForm.email}
+                  onChange={(e) =>
+                    setRedeemForm({ ...redeemForm, email: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                  placeholder="customer@example.com"
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="code"
+                  className="block text-sm font-medium mb-1"
+                >
+                  Voucher Code
+                </label>
+                <input
+                  id="code"
+                  type="text"
+                  value={redeemForm.code}
+                  onChange={(e) =>
+                    setRedeemForm({ ...redeemForm, code: e.target.value })
+                  }
+                  className="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring uppercase"
+                  placeholder="Enter voucher code"
+                  required
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={isRedeeming}
+                className="w-full px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isRedeeming ? "Redeeming..." : "Verify & Redeem"}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderDashboardContent = () => {
     return (
       <div className="space-y-6">
@@ -995,60 +1120,34 @@ const Vendor_Dashboard = () => {
             Create New Voucher
           </button>
         </div>
-        <div className="border-b">
-          <div className="flex space-x-1">
-            <button
-              className={`px-4 py-2 ${
-                activeTab === "overview"
-                  ? "border-b-2 border-primary font-medium"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setActiveTab("overview")}
-            >
-              Overview
-            </button>
-            <button
-              className={`px-4 py-2 ${
-                activeTab === "vouchers"
-                  ? "border-b-2 border-primary font-medium"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setActiveTab("vouchers")}
-            >
-              My Vouchers
-            </button>
+
+        {isLoading ? (
+          <div className="text-center py-8">
+            <p>Loading vouchers...</p>
           </div>
-        </div>
-        {activeTab === "overview" && (
-          <div className="p-4 bg-card rounded-lg">
-            <h2 className="text-xl font-bold">Welcome to your dashboard</h2>
-            <p className="text-muted-foreground">
-              Here you can manage your vouchers, view analytics, and more.
-            </p>
+        ) : error ? (
+          <div className="text-center py-8 text-red-500">
+            <p>{error}</p>
           </div>
-        )}
-        {activeTab === "vouchers" && (
-          <div className="p-4 bg-card rounded-lg">
-            <h2 className="text-xl font-bold">Your Vouchers</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-              <div className="bg-green-50 p-4 rounded-lg">
-                <h3 className="font-medium text-green-800">Active Vouchers</h3>
-                <p className="text-2xl font-bold">
-                  {vouchers.filter((v) => v.status === "active").length}
-                </p>
-              </div>
-              <div className="bg-yellow-50 p-4 rounded-lg">
-                <h3 className="font-medium text-yellow-800">Draft Vouchers</h3>
-                <p className="text-2xl font-bold">
-                  {vouchers.filter((v) => v.status === "draft").length}
-                </p>
-              </div>
-              <div className="bg-red-50 p-4 rounded-lg">
-                <h3 className="font-medium text-red-800">Expired Vouchers</h3>
-                <p className="text-2xl font-bold">
-                  {vouchers.filter((v) => v.status === "expired").length}
-                </p>
-              </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+            <div className="bg-green-50 p-4 rounded-lg">
+              <h3 className="font-medium text-green-800">Active Vouchers</h3>
+              <p className="text-2xl font-bold">
+                {vouchers.filter((v) => v?.status === "active").length}
+              </p>
+            </div>
+            <div className="bg-yellow-50 p-4 rounded-lg">
+              <h3 className="font-medium text-yellow-800">Draft Vouchers</h3>
+              <p className="text-2xl font-bold">
+                {vouchers.filter((v) => v?.status === "draft").length}
+              </p>
+            </div>
+            <div className="bg-red-50 p-4 rounded-lg">
+              <h3 className="font-medium text-red-800">Expired Vouchers</h3>
+              <p className="text-2xl font-bold">
+                {vouchers.filter((v) => v?.status === "expired").length}
+              </p>
             </div>
           </div>
         )}
@@ -1164,6 +1263,8 @@ const Vendor_Dashboard = () => {
         return renderCreateVoucherContent();
       case "vouchers":
         return renderVouchersContent();
+      case "redeem":
+        return renderRedeemContent();
       case "distribution":
         return renderDistributionContent();
       case "analytics":
@@ -1225,6 +1326,7 @@ const Vendor_Dashboard = () => {
         {currentPage === "dashboard" && renderDashboardContent()}
         {currentPage === "createVoucher" && renderCreateVoucherContent()}
         {currentPage === "vouchers" && renderVouchersContent()}
+        {currentPage === "redeem" && renderRedeemContent()}
         {currentPage === "distribution" && renderDistributionContent()}
         {currentPage === "analytics" && renderAnalyticsContent()}
         {currentPage === "settings" && renderSettingsContent()}

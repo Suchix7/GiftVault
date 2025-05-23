@@ -5,7 +5,7 @@ const voucherSchema = new mongoose.Schema(
     vendorId: {
       type: mongoose.Schema.Types.ObjectId,
       required: true,
-      ref: "Vendor",
+      ref: "User",
     },
     name: {
       type: String,
@@ -37,6 +37,11 @@ const voucherSchema = new mongoose.Schema(
     },
     expiryDate: {
       type: Date,
+      required: true,
+    },
+    maxRedemptions: {
+      type: Number,
+      default: 1, // Default to single use
     },
     sentCount: {
       type: Number,

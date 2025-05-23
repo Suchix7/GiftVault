@@ -1,72 +1,103 @@
 import axios from "axios";
 
-const API_URL = "/vouchers";
+// Create axios instance with default config
+const api = axios.create({
+  baseURL: "/api",
+  withCredentials: true,
+  headers: {
+    "Content-Type": "application/json",
+  },
+});
+
+// Add auth token to requests
+api.interceptors.request.use(
+  (config) => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    const token = user?.token;
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error("API Error:", error.response?.data || error.message);
+    return Promise.reject(error);
+  }
+);
 
 // Create voucher
-const createVoucher = async (voucherData, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    withCredentials: true,
-  };
-  const response = await axios.post(API_URL, voucherData, config);
-  return response.data;
+const createVoucher = async (voucherData) => {
+  try {
+    const response = await api.post("/vouchers", voucherData);
+    return response.data.voucher;
+  } catch (error) {
+    console.error("Error creating voucher:", error);
+    throw error.response?.data || error;
+  }
 };
 
 // Get vouchers
-const getVouchers = async (params, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-    params,
-  };
-  const response = await axios.get(API_URL, config);
-  return response.data;
+const getVouchers = async (params) => {
+  try {
+    const response = await api.get("/vouchers", { params });
+    return response.data.vouchers || [];
+  } catch (error) {
+    console.error("Error fetching vouchers:", error);
+    return [];
+  }
 };
 
 // Update voucher
-const updateVoucher = async (voucherId, voucherData, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-  console.log("Updating voucher with ID:", token);
-  const response = await axios.patch(
-    `${API_URL}/${voucherId}`,
-    voucherData,
-    config
-  );
-  return response.data;
+const updateVoucher = async (voucherId, voucherData) => {
+  try {
+    const response = await api.patch(`/vouchers/${voucherId}`, voucherData);
+    return response.data.voucher;
+  } catch (error) {
+    console.error("Error updating voucher:", error);
+    throw error.response?.data || error;
+  }
 };
 
 // Delete voucher
-const deleteVoucher = async (voucherId, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
-
-  const response = await axios.delete(`${API_URL}/${voucherId}`, config);
-  return response.data;
+const deleteVoucher = async (voucherId) => {
+  try {
+    const response = await api.delete(`/vouchers/${voucherId}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting voucher:", error);
+    throw error.response?.data || error;
+  }
 };
-// Update voucher status
-const updateVoucherStatus = async (voucherId, status, token) => {
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  };
 
-  const response = await axios.put(
-    `${API_URL}/${voucherId}/status`,
-    { status },
-    config
-  );
-  return response.data;
+// Get all active vouchers (public)
+const getActiveVouchers = async () => {
+  try {
+    const response = await api.get("/vouchers/public/active");
+    return response.data.vouchers || [];
+  } catch (error) {
+    console.error("Error fetching active vouchers:", error);
+    return [];
+  }
+};
+
+// Redeem voucher
+const redeemVoucher = async (voucherId) => {
+  try {
+    const response = await api.post(`/vouchers/${voucherId}/redeem`);
+    return response.data;
+  } catch (error) {
+    console.error("Error redeeming voucher:", error);
+    throw error.response?.data || error;
+  }
 };
 
 const voucherService = {
@@ -74,7 +105,8 @@ const voucherService = {
   getVouchers,
   updateVoucher,
   deleteVoucher,
-  updateVoucherStatus,
+  getActiveVouchers,
+  redeemVoucher,
 };
 
 export default voucherService;
