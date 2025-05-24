@@ -4,13 +4,18 @@ import crypto from "crypto";
 import {
   encrypt as rsaEncrypt,
   decrypt as rsaDecrypt,
-  getPrivateKey as getRSAPrivateKey,
+  generateNewKeys,
 } from "./rsa.js";
 
-// Export RSA functions directly
+// Export RSA functions
 export const encrypt = rsaEncrypt;
 export const decrypt = rsaDecrypt;
-export const getPrivateKey = getRSAPrivateKey;
+
+// Export getPrivateKey as a function that generates new keys and returns the private key
+export const getPrivateKey = () => {
+  const { privateKey } = generateNewKeys();
+  return privateKey;
+};
 
 // Generate a random voucher code
 export const generateVoucherCode = (length = 12) => {

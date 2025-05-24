@@ -14,10 +14,9 @@ export const createVoucher = async (req, res) => {
     const vendorId = req.user._id;
     const voucherData = req.body;
 
-    // Generate voucher code and encryption keys
+    // Generate voucher code and encrypt it with a new RSA key pair
     const voucherCode = generateVoucherCode();
-    const privateKey = getPrivateKey();
-    const encryptedCode = encrypt(voucherCode, privateKey);
+    const { encrypted: encryptedCode, privateKey } = encrypt(voucherCode);
 
     // Create the voucher with encrypted code
     const voucher = await Voucher.create({
@@ -249,7 +248,6 @@ export const redeemVoucher = async (req, res) => {
       id: voucher._id,
       status: voucher.status,
       hasPrivateKey: !!voucher.privateKey,
-      storedKey: voucher.privateKey,
       hasEncryptedCode: !!voucher.encryptedCode,
     });
 
@@ -274,24 +272,15 @@ export const redeemVoucher = async (req, res) => {
       });
     }
 
-    // If no private key provided, generate and send one
+    // If no private key provided, send the stored one
     if (!privateKey) {
-      // Generate new private key
-      const newPrivateKey = getPrivateKey();
-      console.log("[DEBUG] Generated new private key:", newPrivateKey);
-
-      // Store the private key with the voucher
-      await Voucher.findByIdAndUpdate(id, {
-        privateKey: newPrivateKey,
-      });
-
       // Send private key via email
       try {
         await sendPrivateKeyEmail(
           req.user.email,
           req.user.name,
           { name: voucher.name, value: voucher.value },
-          newPrivateKey
+          voucher.privateKey
         );
 
         return res.json({
@@ -300,10 +289,6 @@ export const redeemVoucher = async (req, res) => {
           requiresKey: true,
         });
       } catch (emailError) {
-        // If email fails, remove the stored private key
-        await Voucher.findByIdAndUpdate(id, {
-          $unset: { privateKey: "" },
-        });
         console.error("[DEBUG] Error sending private key:", emailError);
         return res.status(500).json({
           success: false,
@@ -332,7 +317,6 @@ export const redeemVoucher = async (req, res) => {
       console.log("[DEBUG] Attempting decryption with:", {
         encryptedCode: voucher.encryptedCode,
         providedKey: privateKey,
-        storedKey: voucher.privateKey,
       });
 
       // Attempt to decrypt the voucher code
@@ -353,8 +337,6 @@ export const redeemVoucher = async (req, res) => {
       console.error("[DEBUG] Decryption error:", {
         error: error.message,
         stack: error.stack,
-        privateKeyType: typeof privateKey,
-        privateKeyValue: privateKey,
       });
       return res.status(400).json({
         success: false,
