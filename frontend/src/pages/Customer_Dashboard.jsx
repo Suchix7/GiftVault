@@ -11,7 +11,8 @@ import { Badge } from "@/components/ui/badge";
 import LogoutButton from "@/components/LogoutButton";
 import { useState, useEffect } from "react";
 import api from "@/api/axios";
-import OtpVerificationModal from "@/components/OtpVerificationModal";
+import KeyVerificationModal from "@/components/OtpVerificationModal";
+import { toast } from "sonner";
 
 export default function CustomerDashboard() {
   const [activeView, setActiveView] = useState("vouchers");
@@ -23,6 +24,24 @@ export default function CustomerDashboard() {
   const [selectedVoucherForRedemption, setSelectedVoucherForRedemption] =
     useState(null);
   const [redemptionCodes, setRedemptionCodes] = useState({}); // Map to store codes for each voucher
+  const [currentUser, setCurrentUser] = useState(null);
+  const [isUserLoading, setIsUserLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      try {
+        setIsUserLoading(true);
+        const response = await api.get("/users/profile");
+        setCurrentUser(response.data.user);
+      } catch (error) {
+        console.error("Error fetching user profile:", error);
+        toast.error("Failed to load user profile");
+      } finally {
+        setIsUserLoading(false);
+      }
+    };
+    fetchCurrentUser();
+  }, []);
 
   useEffect(() => {
     const fetchVouchers = async () => {
@@ -32,6 +51,7 @@ export default function CustomerDashboard() {
         console.log("Fetched vouchers:", response.data.vouchers);
       } catch (error) {
         console.error("Error fetching vouchers:", error);
+        toast.error("Failed to load vouchers");
       } finally {
         setIsLoading(false);
       }
@@ -74,24 +94,52 @@ export default function CustomerDashboard() {
     return expiry < now;
   };
 
+  // Helper to check if a voucher is redeemed by the current user
+  const isVoucherRedeemedByUser = (voucher) => {
+    if (!currentUser || !voucher?.redemptions) return false;
+    return voucher.redemptions.some((r) => r.userId === currentUser._id);
+  };
+
+  // Helper to get redemption date for a voucher
+  const getRedemptionDate = (voucher) => {
+    if (!currentUser || !voucher?.redemptions) return null;
+    const redemption = voucher.redemptions.find(
+      (r) => r.userId === currentUser._id
+    );
+    return redemption ? new Date(redemption.redeemedAt) : null;
+  };
+
+  // Filter vouchers based on user's redemptions and codes
   const activeVouchers = vouchers.filter(
-    (voucher) => voucher.status === "active" && !isVoucherExpired(voucher)
+    (voucher) =>
+      voucher.status === "active" &&
+      !isVoucherExpired(voucher) &&
+      !isVoucherRedeemedByUser(voucher)
   );
 
-  const expiredVouchers = vouchers.filter((voucher) =>
-    isVoucherExpired(voucher)
+  const redeemedVouchers = vouchers.filter((voucher) =>
+    isVoucherRedeemedByUser(voucher)
   );
 
-  const redeemedVouchers = vouchers.filter(
-    (voucher) => voucher.status === "redeemed"
+  const expiredVouchers = vouchers.filter(
+    (voucher) => isVoucherExpired(voucher) && !isVoucherRedeemedByUser(voucher)
   );
 
   const handleRedeemClick = (voucher) => {
+    if (!currentUser) {
+      toast.error("Please wait while we load your profile");
+      return;
+    }
     setSelectedVoucherForRedemption(voucher);
     setIsOtpModalOpen(true);
   };
 
-  const handleOtpSuccess = (code) => {
+  const handleKeySuccess = (code) => {
+    if (!currentUser) {
+      toast.error("Please wait while we load your profile");
+      return;
+    }
+
     if (selectedVoucherForRedemption) {
       // Store the redemption code for this specific voucher
       setRedemptionCodes((prev) => ({
@@ -99,13 +147,9 @@ export default function CustomerDashboard() {
         [selectedVoucherForRedemption._id]: code,
       }));
 
-      // Update the voucher status in the local state
-      setVouchers((prevVouchers) =>
-        prevVouchers.map((v) =>
-          v._id === selectedVoucherForRedemption._id
-            ? { ...v, status: "redeemed" }
-            : v
-        )
+      // Don't update the voucher's redemptions yet - it will be updated when the vendor completes the redemption
+      toast.success(
+        "Voucher code received! Present this code to the vendor to complete redemption."
       );
     }
   };
@@ -125,6 +169,9 @@ export default function CustomerDashboard() {
           const buttonColor = voucher.color || "#2563eb";
           const textColor = "#fff";
           const hasRedemptionCode = redemptionCodes[voucher._id];
+          const isRedeemed = isVoucherRedeemedByUser(voucher);
+          const redemptionDate = getRedemptionDate(voucher);
+          const showRedeemButton = !hasRedemptionCode && !isRedeemed;
 
           return (
             <div
@@ -167,9 +214,13 @@ export default function CustomerDashboard() {
                     </div>
                   </div>
 
-                  {voucher.expiryDate && (
+                  {(voucher.expiryDate || redemptionDate) && (
                     <div className="text-center text-white/80 text-sm">
-                      Valid until {formatDate(voucher.expiryDate)}
+                      {hasRedemptionCode
+                        ? "Just redeemed"
+                        : isRedeemed
+                        ? `Redeemed on ${formatDate(redemptionDate)}`
+                        : `Valid until ${formatDate(voucher.expiryDate)}`}
                     </div>
                   )}
 
@@ -189,6 +240,17 @@ export default function CustomerDashboard() {
                           <p className="text-white/80 text-sm">
                             Present this code at checkout
                           </p>
+                        </div>
+                      ) : isRedeemed ? (
+                        <div className="text-center">
+                          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 mb-2">
+                            <p className="text-white text-sm mb-1">
+                              Voucher Redeemed
+                            </p>
+                            <p className="text-white/80 text-sm">
+                              This voucher has been used
+                            </p>
+                          </div>
                         </div>
                       ) : (
                         <Button
@@ -215,52 +277,65 @@ export default function CustomerDashboard() {
     );
   };
 
+  // Show loading state if either vouchers or user data is loading
+  if (isLoading || isUserLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
-      <div className="w-64 border-r bg-card p-6 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Gift Vault</h2>
-          <LogoutButton />
+      <div className="w-[205px] border-r border-border bg-foreground text-background flex flex-col">
+        <div className="p-4 flex items-center gap-2 border-b border-border">
+          <Gift className="h-5 w-5" />
+          <span className="font-semibold">GiftVault</span>
         </div>
 
-        <nav className="space-y-2">
-          <button
+        <nav className="flex flex-col flex-1">
+          <Button
+            variant="ghost"
+            className={`justify-start rounded-none h-12 px-4 ${
+              activeView === "vouchers" ? "bg-accent text-black" : ""
+            }`}
             onClick={() => setActiveView("vouchers")}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              activeView === "vouchers"
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            }`}
           >
-            <Gift className="h-5 w-5" />
-            <span>My Vouchers</span>
-          </button>
-
-          <button
+            <Gift className="h-5 w-5 mr-2" />
+            My Vouchers
+          </Button>
+          <Button
+            variant="ghost"
+            className={`justify-start rounded-none h-12 px-4 ${
+              activeView === "history" ? "bg-accent text-black" : ""
+            }`}
             onClick={() => setActiveView("history")}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              activeView === "history"
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            }`}
           >
-            <History className="h-5 w-5" />
-            <span>History</span>
-          </button>
-
-          <button
+            <History className="h-5 w-5 mr-2" />
+            History
+          </Button>
+          <Button
+            variant="ghost"
+            className={`justify-start rounded-none h-12 px-4 ${
+              activeView === "profile" ? "bg-accent text-black" : ""
+            }`}
             onClick={() => setActiveView("profile")}
-            className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-              activeView === "profile"
-                ? "bg-primary text-primary-foreground"
-                : "hover:bg-accent"
-            }`}
           >
-            <User className="h-5 w-5" />
-            <span>Profile</span>
-          </button>
+            <User className="h-5 w-5 mr-2" />
+            Profile
+          </Button>
         </nav>
+
+        <div className="p-4 border-t">
+          <div className="mt-auto">
+            <LogoutButton />
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -350,14 +425,15 @@ export default function CustomerDashboard() {
         )}
       </div>
 
-      {/* Add OTP Modal */}
+      {/* Add Key Verification Modal */}
       {isOtpModalOpen && (
-        <OtpVerificationModal
+        <KeyVerificationModal
           onClose={() => {
             setIsOtpModalOpen(false);
             setSelectedVoucherForRedemption(null);
           }}
-          onSuccess={handleOtpSuccess}
+          onSuccess={handleKeySuccess}
+          voucherId={selectedVoucherForRedemption?._id}
         />
       )}
     </div>

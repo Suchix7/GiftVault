@@ -18,6 +18,9 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
+import api from "@/api/axios";
+import LogoutButton from "@/components/LogoutButton";
+import voucherService from "@/api/vouchers";
 
 const StatusBadge = ({ status }) => {
   const statusColors = {
@@ -36,9 +39,6 @@ const StatusBadge = ({ status }) => {
     </span>
   );
 };
-
-import LogoutButton from "@/components/LogoutButton";
-import voucherService from "@/api/vouchers";
 
 const Vendor_Dashboard = () => {
   // Navigation state
@@ -230,7 +230,8 @@ const Vendor_Dashboard = () => {
       };
 
       const response = await voucherService.createVoucher(voucherData);
-      setVouchers((prevVouchers) => [...prevVouchers, response.data]);
+      // The response is the voucher object directly
+      setVouchers((prevVouchers) => [...prevVouchers, response]);
       setVoucherCreated((prev) => !prev);
       toast.success("Voucher created successfully");
 
@@ -247,7 +248,7 @@ const Vendor_Dashboard = () => {
 
       setCurrentPage("vouchers");
     } catch (error) {
-      toast.error("Failed to create voucher");
+      toast.error(error.response?.data?.message || "Failed to create voucher");
       console.error("Create voucher error:", error);
     }
   };
@@ -268,12 +269,40 @@ const Vendor_Dashboard = () => {
     e.preventDefault();
     setIsRedeeming(true);
     try {
-      // Here you would add your API call to verify and redeem the voucher
-      // For now, we'll just show a success message
-      toast.success("Voucher redeemed successfully!");
-      setRedeemForm({ email: "", code: "" });
+      // First find the voucher by code
+      const findVoucherResponse = await voucherService.findVoucherByCode(
+        redeemForm.code
+      );
+
+      if (!findVoucherResponse.success) {
+        toast.error(findVoucherResponse.message || "Failed to find voucher");
+        return;
+      }
+
+      // Now complete the redemption with the voucher ID
+      const response = await voucherService.completeRedemption({
+        customerEmail: redeemForm.email,
+        voucherCode: redeemForm.code,
+        voucherId: findVoucherResponse.voucher._id,
+      });
+
+      if (response.success) {
+        toast.success(response.message || "Voucher redeemed successfully!");
+        setRedeemForm({ email: "", code: "" });
+
+        // Refresh vouchers list to show updated status
+        const updatedVouchers = await voucherService.getVouchers();
+        setVouchers(updatedVouchers);
+      } else {
+        toast.error(response.message || "Failed to redeem voucher");
+      }
     } catch (error) {
-      toast.error(error.message || "Failed to redeem voucher");
+      console.error("Redemption error:", error);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to redeem voucher"
+      );
     } finally {
       setIsRedeeming(false);
     }
@@ -636,6 +665,11 @@ const Vendor_Dashboard = () => {
                           <div className="text-sm text-muted-foreground">
                             {voucher._id}
                           </div>
+                          {voucher.decryptedCode && (
+                            <div className="text-sm text-blue-600 font-mono mt-1">
+                              Code: {voucher.decryptedCode}
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -718,6 +752,11 @@ const Vendor_Dashboard = () => {
                       <p className="text-sm text-muted-foreground mt-1">
                         By: {voucher.vendor?.name || "N/A"}
                       </p>
+                      {voucher.decryptedCode && (
+                        <p className="text-sm text-blue-600 font-mono mt-1">
+                          Code: {voucher.decryptedCode}
+                        </p>
+                      )}
                     </div>
                     <div>
                       <StatusBadge status={voucher.status} />
@@ -806,6 +845,14 @@ const Vendor_Dashboard = () => {
                     {selectedVoucher.vendor?.email || ""}
                   </p>
                 </div>
+                {selectedVoucher.decryptedCode && (
+                  <div>
+                    <p className="text-sm text-gray-500">Decrypted Code</p>
+                    <p className="font-mono text-blue-600">
+                      {selectedVoucher.decryptedCode}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-gray-500">Value</p>
                   <p>${selectedVoucher.value.toFixed(2)}</p>

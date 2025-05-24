@@ -3,6 +3,10 @@ import axios from "axios";
 const api = axios.create({
   baseURL: "http://localhost:5555/api",
   withCredentials: true, // This is crucial for cookies
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
 });
 
 // // Add request interceptor to handle errors globally

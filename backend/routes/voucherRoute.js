@@ -8,6 +8,8 @@ import {
   deleteVoucher,
   getAllActiveVouchers,
   redeemVoucher,
+  completeVoucherRedemption,
+  findVoucherByCode,
 } from "../controllers/voucherController.js";
 import { protect, isVendor } from "../middleware/authMiddleware.js";
 
@@ -19,6 +21,10 @@ router.post("/", protect, isVendor, createVoucher); // Create voucher
 router.patch("/:id", protect, isVendor, updateVoucher); // Update voucher
 router.delete("/:id", protect, isVendor, deleteVoucher); // Delete voucher
 router.get("/:id", protect, isVendor, getVoucher); // Get single vendor voucher
+router.post("/redeem/complete", protect, isVendor, completeVoucherRedemption);
+
+// Redemption routes
+router.post("/find-by-code", protect, isVendor, findVoucherByCode);
 
 // Customer routes
 router.get("/public/active", getAllActiveVouchers); // Get all active vouchers (public)

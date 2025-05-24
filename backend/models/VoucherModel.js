@@ -25,7 +25,7 @@ const voucherSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "expired", "draft", "redeemed"],
+      enum: ["active", "expired", "draft"],
       default: "draft",
     },
     color: {
@@ -33,7 +33,7 @@ const voucherSchema = new mongoose.Schema(
       default: "#000000",
     },
     logo: {
-      type: String, // URL or base64 encoded image
+      type: String,
     },
     expiryDate: {
       type: Date,
@@ -41,7 +41,7 @@ const voucherSchema = new mongoose.Schema(
     },
     maxRedemptions: {
       type: Number,
-      default: 1, // Default to single use
+      default: -1, // -1 means unlimited
     },
     sentCount: {
       type: Number,
@@ -51,20 +51,67 @@ const voucherSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    // Encryption fields
+    encryptedCode: {
+      type: String,
+      required: true,
+    },
+    publicKey: {
+      type: Object,
+      required: true,
+    },
+    // Temporary field for storing private key during redemption
+    privateKey: {
+      type: String,
+      select: false, // Don't include in normal queries
+    },
+    // Track redemptions per user
+    redemptions: [
+      {
+        userId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "User",
+          required: true,
+        },
+        redeemedAt: {
+          type: Date,
+          default: Date.now,
+        },
+        code: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
   },
   {
     timestamps: true,
   }
 );
 
-// Generate voucher ID before saving
-voucherSchema.pre("save", function (next) {
-  if (!this.isNew) return next();
+// Instance method to check if voucher can generate more codes
+voucherSchema.methods.canGenerateCode = function () {
+  return (
+    this.status === "active" &&
+    (this.maxRedemptions === -1 || this.redeemedCount < this.maxRedemptions) &&
+    new Date(this.expiryDate) > new Date()
+  );
+};
 
-  // Generate V-XXXX ID
-  this.id = `V-${Math.floor(1000 + Math.random() * 9000)}`;
-  next();
-});
+// Check if a user has redeemed this voucher
+voucherSchema.methods.isRedeemedByUser = function (userId) {
+  return this.redemptions.some(
+    (r) => r.userId.toString() === userId.toString()
+  );
+};
+
+// Add a redemption for a user
+voucherSchema.methods.addRedemption = function (userId, code) {
+  if (!this.isRedeemedByUser(userId)) {
+    this.redemptions.push({ userId, code });
+    this.redeemedCount += 1;
+  }
+};
 
 const Voucher = mongoose.model("Voucher", voucherSchema);
 

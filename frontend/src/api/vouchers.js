@@ -12,7 +12,7 @@ const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use(
   (config) => {
-    const user = JSON.parse(localStorage.getItem("user"));
+    const user = JSON.parse(localStorage.getItem("userInfo"));
     const token = user?.token;
 
     if (token) {
@@ -38,7 +38,7 @@ api.interceptors.response.use(
 const createVoucher = async (voucherData) => {
   try {
     const response = await api.post("/vouchers", voucherData);
-    return response.data.voucher;
+    return response.data.data;
   } catch (error) {
     console.error("Error creating voucher:", error);
     throw error.response?.data || error;
@@ -49,7 +49,7 @@ const createVoucher = async (voucherData) => {
 const getVouchers = async (params) => {
   try {
     const response = await api.get("/vouchers", { params });
-    return response.data.vouchers || [];
+    return response.data.success ? response.data.vouchers : [];
   } catch (error) {
     console.error("Error fetching vouchers:", error);
     return [];
@@ -100,6 +100,30 @@ const redeemVoucher = async (voucherId) => {
   }
 };
 
+// Find voucher by code
+const findVoucherByCode = async (code) => {
+  try {
+    const response = await api.post(`/vouchers/find-by-code`, {
+      voucherCode: code,
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error finding voucher:", error);
+    throw error.response?.data || error;
+  }
+};
+
+// Complete voucher redemption
+const completeRedemption = async (data) => {
+  try {
+    const response = await api.post(`/vouchers/redeem/complete`, data);
+    return response.data;
+  } catch (error) {
+    console.error("Error redeeming voucher:", error);
+    throw error.response?.data || error;
+  }
+};
+
 const voucherService = {
   createVoucher,
   getVouchers,
@@ -107,6 +131,8 @@ const voucherService = {
   deleteVoucher,
   getActiveVouchers,
   redeemVoucher,
+  findVoucherByCode,
+  completeRedemption,
 };
 
 export default voucherService;

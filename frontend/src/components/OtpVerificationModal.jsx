@@ -4,51 +4,85 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import api from "@/api/axios";
 
-export default function OtpVerificationModal({ onClose, onSuccess }) {
-  const [otp, setOtp] = useState("");
+export default function KeyVerificationModal({
+  onClose,
+  onSuccess,
+  voucherId,
+}) {
+  const [privateKey, setPrivateKey] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [step, setStep] = useState("send"); // "send" or "verify"
-  const [attemptsLeft, setAttemptsLeft] = useState(3);
+  const [keyRequested, setKeyRequested] = useState(false);
 
-  const handleSendOTP = async () => {
-    try {
-      setIsLoading(true);
-      await api.post("/otp/send-redemption");
-      toast.success("Verification code sent to your email");
-      setStep("verify");
-    } catch (error) {
-      toast.error(
-        error.response?.data?.message || "Failed to send verification code"
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e) => {
+  const handleVerifyKey = async (e) => {
     e.preventDefault();
-    if (!otp) {
-      toast.error("Please enter the verification code");
-      return;
-    }
+    setIsLoading(true);
 
     try {
-      setIsLoading(true);
-      const response = await api.post("/otp/verify-redemption", { otp });
-      toast.success("Verification successful");
-      onSuccess(response.data.redemptionCode);
-      onClose();
-    } catch (error) {
-      const attemptsLeft = error.response?.data?.attemptsLeft;
-      if (attemptsLeft !== undefined) {
-        setAttemptsLeft(attemptsLeft);
-        toast.error(`Invalid code. ${attemptsLeft} attempts left.`);
+      if (!keyRequested) {
+        // First request - get private key
+        const response = await api.post(`/vouchers/${voucherId}/redeem`);
+        if (response.data.requiresKey) {
+          setKeyRequested(true);
+          toast.success("Please check your email for the private key");
+        }
       } else {
-        toast.error(error.response?.data?.message || "Failed to verify code");
-        if (error.response?.status === 404) {
-          setStep("send"); // Reset to send step if code expired
+        try {
+          // Clean up the key string and send it as is
+          const cleanKey = privateKey.trim();
+          console.log("Raw key input:", cleanKey);
+
+          // Send the request with the key exactly as provided
+          const payload = { privateKey: cleanKey };
+          console.log("Sending request payload:", payload);
+
+          try {
+            const response = await api.post(
+              `/vouchers/${voucherId}/redeem`,
+              payload
+            );
+            console.log("Server response:", response.data);
+
+            if (response.data.success) {
+              toast.success("Voucher redeemed successfully");
+              onSuccess(response.data.voucher.decryptedCode);
+              onClose();
+            } else {
+              toast.error(response.data.message || "Verification failed");
+            }
+          } catch (apiError) {
+            console.error("API Error Details:", {
+              status: apiError.response?.status,
+              statusText: apiError.response?.statusText,
+              data: apiError.response?.data,
+              headers: apiError.response?.headers,
+              config: {
+                url: apiError.config?.url,
+                method: apiError.config?.method,
+                data: apiError.config?.data,
+                headers: apiError.config?.headers,
+              },
+            });
+            throw apiError;
+          }
+        } catch (error) {
+          console.error("Key verification error:", error);
+          console.error("Failed with key:", privateKey);
+          toast.error(
+            error.response?.data?.message ||
+              "Please enter the private key exactly as shown in your email."
+          );
         }
       }
+    } catch (error) {
+      console.error("Full error details:", {
+        name: error.name,
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      const errorMessage =
+        error.response?.data?.message || "Failed to process request";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +92,7 @@ export default function OtpVerificationModal({ onClose, onSuccess }) {
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <div className="bg-background rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Email Verification</h2>
+          <h2 className="text-xl font-bold">Redeem Voucher</h2>
           <button
             onClick={onClose}
             className="text-muted-foreground hover:text-foreground"
@@ -67,57 +101,46 @@ export default function OtpVerificationModal({ onClose, onSuccess }) {
           </button>
         </div>
 
-        {step === "send" ? (
-          <div className="space-y-4">
-            <p className="text-muted-foreground">
-              To redeem this voucher, we'll send a verification code to your
-              registered email address.
-            </p>
-            <Button
-              onClick={handleSendOTP}
-              className="w-full"
-              disabled={isLoading}
-            >
-              {isLoading ? "Sending..." : "Send Verification Code"}
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleVerifyOTP} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Enter Verification Code
-              </label>
-              <Input
-                type="text"
-                maxLength={6}
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                placeholder="Enter 6-digit code"
-                className="w-full"
-                required
-              />
-              <p className="text-sm text-muted-foreground mt-1">
-                Please check your email for the verification code.
-              </p>
+        <form onSubmit={handleVerifyKey} className="space-y-4">
+          {keyRequested ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">
+                  Enter Private Key
+                </label>
+                <Input
+                  type="text"
+                  value={privateKey}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    console.log("Input change:", value);
+                    setPrivateKey(value);
+                  }}
+                  placeholder='{"d":"2753","n":"3233"}'
+                  className="w-full font-mono text-sm"
+                  required
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  Enter the key exactly as shown in your email, including all
+                  quotes and braces.
+                </p>
+              </div>
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Verifying..." : "Verify & Redeem"}
+              </Button>
+            </>
+          ) : (
+            <>
               <p className="text-sm text-muted-foreground">
-                {attemptsLeft} attempts remaining
+                Click the button below to receive your private key via email.
+                You'll need this key to redeem your voucher.
               </p>
-            </div>
-            <div className="flex gap-2">
-              <Button type="submit" className="flex-1" disabled={isLoading}>
-                {isLoading ? "Verifying..." : "Verify Code"}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Sending..." : "Send Private Key"}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setStep("send")}
-                disabled={isLoading}
-              >
-                Resend Code
-              </Button>
-            </div>
-          </form>
-        )}
+            </>
+          )}
+        </form>
       </div>
     </div>
   );
