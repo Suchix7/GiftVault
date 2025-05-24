@@ -334,6 +334,11 @@ const Admin_Dashboard = () => {
           role = "user";
       }
 
+      // Validate required fields
+      if (!userData.name || !userData.email || !userData.password) {
+        throw new Error("Name, email, and password are required");
+      }
+
       if (editingUser) {
         // Prepare update data - exclude password if empty
         const updateData = { ...userData };
@@ -361,8 +366,12 @@ const Admin_Dashboard = () => {
       } else {
         // Create new user
         const response = await axios.post("/users", {
-          ...userData,
+          name: userData.name,
+          email: userData.email,
+          password: userData.password,
           role,
+          companyName: userData.companyName || undefined,
+          number: userData.number || undefined,
           isApproved: creatingUserType === "Vendor" ? false : true,
         });
         setUsers([...users, response.data]);
@@ -373,6 +382,7 @@ const Admin_Dashboard = () => {
       console.error("Error creating/updating user:", error);
       throw new Error(
         error.response?.data?.message ||
+          error.message ||
           (editingUser ? "Failed to update user" : "Failed to create user")
       );
     }
@@ -382,7 +392,7 @@ const Admin_Dashboard = () => {
     onClose,
     onCreate,
     userType,
-    editingUser, // Add this prop
+    editingUser,
   }) => {
     const [formData, setFormData] = useState({
       name: "",
@@ -392,6 +402,7 @@ const Admin_Dashboard = () => {
       number: "",
     });
     const [loading, setLoading] = useState(false);
+    const [error, setError] = useState("");
 
     useEffect(() => {
       if (editingUser) {
@@ -411,41 +422,41 @@ const Admin_Dashboard = () => {
           number: "",
         });
       }
+      setError("");
     }, [editingUser]);
 
     const handleChange = (e) => {
       const { name, value } = e.target;
       setFormData((prev) => ({ ...prev, [name]: value }));
+      setError(""); // Clear error when user makes changes
     };
 
     const handleSubmit = async (e) => {
       e.preventDefault();
       setLoading(true);
+      setError("");
+
       try {
+        // Validate required fields
+        if (
+          !formData.name ||
+          !formData.email ||
+          (!editingUser && !formData.password)
+        ) {
+          throw new Error("Please fill in all required fields");
+        }
+
         await onCreate(formData);
         onClose();
         if (editingUser) {
-          toast("User Updated", {
-            description: "Sunday, December 03, 2023 at 9:00 AM",
-            action: {
-              label: "Remove",
-            },
-          });
+          toast.success("User Updated Successfully");
         } else {
-          toast("User Created", {
-            description: "Sunday, December 03, 2023 at 9:00 AM",
-            action: {
-              label: "Remove",
-            },
-          });
+          toast.success("User Created Successfully");
         }
       } catch (error) {
-        toast("Error while Updating", {
-          description: "Sunday, December 03, 2023 at 9:00 AM",
-          action: {
-            label: "Remove",
-          },
-        });
+        console.error("Error:", error);
+        setError(error.message);
+        toast.error(error.message);
       } finally {
         setLoading(false);
       }
@@ -467,9 +478,16 @@ const Admin_Dashboard = () => {
               <X className="h-5 w-5" />
             </button>
           </div>
+          {error && (
+            <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Name</label>
+              <label className="block text-sm font-medium mb-1">
+                Name <span className="text-red-500">*</span>
+              </label>
               <input
                 type="text"
                 name="name"
@@ -480,7 +498,9 @@ const Admin_Dashboard = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
+              <label className="block text-sm font-medium mb-1">
+                Email <span className="text-red-500">*</span>
+              </label>
               <input
                 type="email"
                 name="email"
@@ -492,7 +512,13 @@ const Admin_Dashboard = () => {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">
-                Password{editingUser ? " (Leave blank to keep current)" : ""}
+                Password{" "}
+                {!editingUser && <span className="text-red-500">*</span>}
+                {editingUser && (
+                  <span className="text-sm text-muted-foreground ml-1">
+                    (Leave blank to keep current)
+                  </span>
+                )}
               </label>
               <input
                 type="password"
@@ -500,14 +526,14 @@ const Admin_Dashboard = () => {
                 value={formData.password}
                 onChange={handleChange}
                 required={!editingUser}
-                minLength="6"
+                minLength={6}
                 className="w-full px-3 py-2 border border-input rounded-md"
               />
             </div>
             {userType === "Vendor" && (
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Company Name (Optional)
+                  Company Name
                 </label>
                 <input
                   type="text"
@@ -520,7 +546,7 @@ const Admin_Dashboard = () => {
             )}
             <div>
               <label className="block text-sm font-medium mb-1">
-                Phone (Optional)
+                Phone Number
               </label>
               <input
                 type="tel"

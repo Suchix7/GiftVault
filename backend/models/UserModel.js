@@ -25,8 +25,8 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["customer", "vendor", "admin"],
-      default: "customer",
+      enum: ["user", "vendor", "admin"],
+      default: "user",
     },
     redeemedVouchers: [
       {
@@ -37,7 +37,7 @@ const userSchema = new mongoose.Schema(
     isApproved: {
       type: Boolean,
       default: function () {
-        return this.role === "customer" || this.role === "admin"; // Auto-approve customers and admins
+        return this.role === "user" || this.role === "admin"; // Auto-approve users and admins
       },
     },
     referralCode: {
