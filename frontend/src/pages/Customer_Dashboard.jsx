@@ -6,13 +6,50 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gift, History, User } from "lucide-react";
+import { Gift, History, User, Calendar, Award, Users } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import LogoutButton from "@/components/LogoutButton";
 import { useState, useEffect } from "react";
 import api from "@/api/axios";
 import KeyVerificationModal from "@/components/OtpVerificationModal";
 import { toast } from "sonner";
+import { motion } from "framer-motion";
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.25,
+      when: "beforeChildren",
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: { duration: 0.3 },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.95 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: { duration: 0.3 },
+  },
+  hover: {
+    scale: 1.02,
+    transition: { duration: 0.2 },
+  },
+};
 
 export default function CustomerDashboard() {
   const [activeView, setActiveView] = useState("vouchers");
@@ -401,27 +438,239 @@ export default function CustomerDashboard() {
         )}
 
         {activeView === "history" && (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold">Purchase History</h1>
-            <p className="text-muted-foreground mt-2">
-              View your past voucher purchases and redemptions
-            </p>
-            <div className="mt-8">
-              <p>This would show your complete transaction history</p>
-            </div>
-          </div>
+          <motion.div
+            className="p-6 space-y-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div variants={itemVariants}>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Purchase History
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                View your past voucher purchases and redemptions
+              </p>
+            </motion.div>
+
+            <motion.div className="grid gap-4" variants={containerVariants}>
+              {redeemedVouchers.length > 0 ? (
+                redeemedVouchers.map((voucher) => {
+                  const redemptionDate = getRedemptionDate(voucher);
+                  return (
+                    <motion.div
+                      key={voucher._id}
+                      variants={cardVariants}
+                      initial="hidden"
+                      animate="visible"
+                      whileHover="hover"
+                      className="bg-card border border-border rounded-lg p-6 flex items-center justify-between hover:shadow-lg transition-shadow duration-300 hover:border-primary/20"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="h-16 w-16 rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 p-3 flex items-center justify-center shadow-inner">
+                          {voucher.logo ? (
+                            <img
+                              src={voucher.logo}
+                              alt="Vendor logo"
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <Gift className="h-8 w-8 text-primary" />
+                          )}
+                        </div>
+                        <div>
+                          <h3 className="font-semibold text-lg">
+                            {voucher.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground flex items-center gap-2">
+                            <Users className="h-4 w-4" />
+                            {vendors[voucher.vendorId] || "Vendor"}
+                          </p>
+                          <p className="text-sm font-medium text-primary mt-1">
+                            Value: Rs. {voucher.value}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-medium flex items-center gap-2 justify-end text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          {formatDate(redemptionDate)}
+                        </div>
+                        <div className="text-sm mt-2">
+                          <Badge
+                            variant={
+                              voucher.status === "active"
+                                ? "default"
+                                : "secondary"
+                            }
+                          >
+                            {voucher.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })
+              ) : (
+                <motion.div
+                  variants={cardVariants}
+                  className="text-center py-16 bg-gradient-to-br from-muted/50 to-muted rounded-lg border border-border"
+                >
+                  <Gift className="h-16 w-16 mx-auto text-primary/50 mb-4" />
+                  <h3 className="text-xl font-medium mb-2">
+                    No Redemption History
+                  </h3>
+                  <p className="text-muted-foreground max-w-sm mx-auto">
+                    You haven't redeemed any vouchers yet. Browse available
+                    vouchers to get started!
+                  </p>
+                </motion.div>
+              )}
+            </motion.div>
+          </motion.div>
         )}
 
         {activeView === "profile" && (
-          <div className="p-6">
-            <h1 className="text-3xl font-bold">My Profile</h1>
-            <p className="text-muted-foreground mt-2">
-              Manage your account information and preferences
-            </p>
-            <div className="mt-8">
-              <p>This would show your profile information and settings</p>
-            </div>
-          </div>
+          <motion.div
+            className="p-6 space-y-6"
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+          >
+            <motion.div variants={itemVariants}>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                My Profile
+              </h1>
+              <p className="text-muted-foreground mt-2">
+                Manage your account information and preferences
+              </p>
+            </motion.div>
+
+            <motion.div
+              className="grid gap-6 max-w-3xl"
+              variants={containerVariants}
+            >
+              <motion.div
+                variants={cardVariants}
+                whileHover="hover"
+                className="bg-gradient-to-br from-card to-card/50 border border-border rounded-lg p-8 hover:shadow-lg transition-shadow duration-300"
+              >
+                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary" />
+                  Personal Information
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Name
+                    </label>
+                    <div className="text-lg font-medium">
+                      {currentUser?.name}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Email
+                    </label>
+                    <div className="text-lg font-medium">
+                      {currentUser?.email}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Phone Number
+                    </label>
+                    <div className="text-lg font-medium">
+                      {currentUser?.number || "Not provided"}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                variants={cardVariants}
+                whileHover="hover"
+                className="bg-gradient-to-br from-card to-card/50 border border-border rounded-lg p-8 hover:shadow-lg transition-shadow duration-300"
+              >
+                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                  <Award className="h-5 w-5 text-primary" />
+                  Account Details
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Account Type
+                    </label>
+                    <div className="text-lg font-medium capitalize">
+                      {currentUser?.role}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Bonus Points
+                    </label>
+                    <div className="text-lg font-medium text-primary">
+                      {currentUser?.bonusPoints || 0} points
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Referral Code
+                    </label>
+                    <div className="text-lg font-mono bg-muted px-3 py-1 rounded-md inline-block">
+                      {currentUser?.referralCode || "Not available"}
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Member Since
+                    </label>
+                    <div className="text-lg font-medium flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      {currentUser?.createdAt
+                        ? formatDate(new Date(currentUser.createdAt))
+                        : "Unknown"}
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+
+              <motion.div
+                variants={cardVariants}
+                whileHover="hover"
+                className="bg-gradient-to-br from-card to-card/50 border border-border rounded-lg p-8 hover:shadow-lg transition-shadow duration-300"
+              >
+                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" />
+                  Account Statistics
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <motion.div
+                    whileHover={{ scale: 1.03 }}
+                    className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-lg"
+                  >
+                    <div className="text-sm font-medium text-muted-foreground mb-2">
+                      Total Vouchers Redeemed
+                    </div>
+                    <div className="text-3xl font-bold text-primary">
+                      {redeemedVouchers.length}
+                    </div>
+                  </motion.div>
+                  <motion.div
+                    whileHover={{ scale: 1.03 }}
+                    className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-lg"
+                  >
+                    <div className="text-sm font-medium text-muted-foreground mb-2">
+                      Active Vouchers
+                    </div>
+                    <div className="text-3xl font-bold text-primary">
+                      {activeVouchers.length}
+                    </div>
+                  </motion.div>
+                </div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         )}
       </div>
 

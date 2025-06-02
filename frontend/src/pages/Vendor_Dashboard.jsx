@@ -15,12 +15,31 @@ import {
   List,
   GridIcon,
   Ticket,
+  Edit,
+  Clock,
+  Users,
+  Percent,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { format, parseISO } from "date-fns";
 import { toast } from "sonner";
 import api from "@/api/axios";
 import LogoutButton from "@/components/LogoutButton";
 import voucherService from "@/api/vouchers";
+import { motion } from "framer-motion";
+import {
+  ResponsiveContainer,
+  BarChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+} from "recharts";
 
 const StatusBadge = ({ status }) => {
   const statusColors = {
@@ -80,11 +99,12 @@ const Vendor_Dashboard = () => {
     },
     { id: "vouchers", label: "Vouchers", icon: <Gift className="h-5 w-5" /> },
     { id: "redeem", label: "Redeem", icon: <Ticket className="h-5 w-5" /> },
-    {
-      id: "distribution",
-      label: "Distribution",
-      icon: <Share2 className="h-5 w-5" />,
-    },
+    // Commenting out distribution tab for now
+    // {
+    //   id: "distribution",
+    //   label: "Distribution",
+    //   icon: <Share2 className="h-5 w-5" />,
+    // },
     {
       id: "analytics",
       label: "Analytics",
@@ -113,22 +133,51 @@ const Vendor_Dashboard = () => {
   // Add new state for redeem loading
   const [isRedeeming, setIsRedeeming] = useState(false);
 
-  // Load vouchers
+  // Load vouchers with optimized loading state
   useEffect(() => {
     const loadVouchers = async () => {
       try {
         setIsLoading(true);
         setError(null);
-        const data = await voucherService.getVouchers();
+
+        // Add timeout to show loading state for better UX
+        const timeoutPromise = new Promise((resolve) =>
+          setTimeout(resolve, 500)
+        );
+        const vouchersPromise = voucherService.getVouchers();
+
+        // Wait for both minimum loading time and data
+        const [_, data] = await Promise.all([timeoutPromise, vouchersPromise]);
+
+        if (!data) {
+          throw new Error("No data received from server");
+        }
+
         setVouchers(Array.isArray(data) ? data : []);
+
+        // Cache the vouchers in localStorage for faster initial load
+        localStorage.setItem("cachedVouchers", JSON.stringify(data));
       } catch (err) {
         console.error("Failed to load vouchers:", err);
         setError("Failed to load vouchers. Please try again later.");
-        setVouchers([]);
+
+        // Try to load from cache if network request fails
+        const cachedData = localStorage.getItem("cachedVouchers");
+        if (cachedData) {
+          setVouchers(JSON.parse(cachedData));
+        } else {
+          setVouchers([]);
+        }
       } finally {
         setIsLoading(false);
       }
     };
+
+    // Try to show cached data immediately while loading fresh data
+    const cachedData = localStorage.getItem("cachedVouchers");
+    if (cachedData) {
+      setVouchers(JSON.parse(cachedData));
+    }
 
     loadVouchers();
   }, [voucherCreated]);
@@ -178,10 +227,14 @@ const Vendor_Dashboard = () => {
     }
   };
 
-  // Update Voucher
+  // Optimize update voucher function
   const handleUpdateVoucher = async (e) => {
     e.preventDefault();
     setIsLoading(true);
+
+    // Show immediate feedback
+    toast.loading("Updating voucher...");
+
     try {
       const updatedVoucher = {
         ...selectedVoucher,
@@ -194,17 +247,31 @@ const Vendor_Dashboard = () => {
         updatedVoucher
       );
 
-      // Use the updated voucher from the response, or fallback to updatedVoucher
+      // Update local state immediately for better UX
       const updated = response.data || updatedVoucher;
-
       setVouchers((prev) =>
         prev.map((v) => (v._id === selectedVoucher._id ? updated : v))
       );
+
+      // Update cache
+      const cachedData = localStorage.getItem("cachedVouchers");
+      if (cachedData) {
+        const cached = JSON.parse(cachedData);
+        localStorage.setItem(
+          "cachedVouchers",
+          JSON.stringify(
+            cached.map((v) => (v._id === selectedVoucher._id ? updated : v))
+          )
+        );
+      }
+
+      toast.dismiss();
       toast.success("Voucher updated successfully");
       setIsEditModalOpen(false);
-      setSelectedVoucher(null); // Clear selection after editing
+      setSelectedVoucher(null);
     } catch (error) {
-      toast.error("Failed to update voucher");
+      toast.dismiss();
+      toast.error(error.response?.data?.message || "Failed to update voucher");
       console.error("Update error:", error);
     } finally {
       setIsLoading(false);
@@ -342,7 +409,7 @@ const Vendor_Dashboard = () => {
                   htmlFor="value"
                   className="block text-sm font-medium mb-1"
                 >
-                  Value ($)
+                  Value (Rs.)
                 </label>
                 <input
                   id="value"
@@ -542,7 +609,7 @@ const Vendor_Dashboard = () => {
 
                   <div className="flex justify-center">
                     <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 text-white font-bold text-2xl">
-                      ${newVoucher.value || "0"}
+                      Rs.{newVoucher.value || "0"}
                     </div>
                   </div>
 
@@ -566,6 +633,18 @@ const Vendor_Dashboard = () => {
       </div>
     );
   };
+
+  // Add loading skeleton for vouchers list
+  const LoadingSkeleton = () => (
+    <div className="space-y-4 animate-pulse">
+      {[1, 2, 3].map((i) => (
+        <div key={i} className="border rounded-lg p-4">
+          <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+        </div>
+      ))}
+    </div>
+  );
 
   const renderVouchersContent = () => {
     return (
@@ -617,7 +696,22 @@ const Vendor_Dashboard = () => {
             </div>
           </div>
 
-          {filteredVouchers.length === 0 ? (
+          {isLoading ? (
+            <LoadingSkeleton />
+          ) : error ? (
+            <div className="text-center py-8">
+              <p className="text-red-500">{error}</p>
+              <button
+                onClick={() => {
+                  localStorage.removeItem("cachedVouchers");
+                  window.location.reload();
+                }}
+                className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md"
+              >
+                Retry Loading
+              </button>
+            </div>
+          ) : filteredVouchers.length === 0 ? (
             <div className="p-8 text-center">
               <p className="text-muted-foreground">
                 {searchTerm
@@ -649,7 +743,7 @@ const Vendor_Dashboard = () => {
                       Expiry
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Sent/Redeemed
+                      Redeemed
                     </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Actions
@@ -683,7 +777,7 @@ const Vendor_Dashboard = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        ${voucher.value.toFixed(2)}
+                        Rs.{voucher.value.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={voucher.status} />
@@ -701,7 +795,14 @@ const Vendor_Dashboard = () => {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {voucher.sentCount}/{voucher.redeemedCount}
+                        <div className="flex items-center gap-1">
+                          <span className="text-muted-foreground">
+                            Redeemed:
+                          </span>
+                          <span className="font-medium">
+                            {voucher.redeemedCount || 0}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end space-x-2">
@@ -763,7 +864,7 @@ const Vendor_Dashboard = () => {
                     </div>
                   </div>
                   <div className="text-xl font-bold">
-                    ${voucher.value.toFixed(2)}
+                    Rs. {voucher.value.toFixed(2)}
                   </div>
                   <div className="grid grid-cols-2 text-sm gap-2">
                     <div>
@@ -890,8 +991,10 @@ const Vendor_Dashboard = () => {
                 <div>
                   <p className="text-sm text-gray-500">Usage</p>
                   <p>
-                    {selectedVoucher.sentCount} sent /{" "}
-                    {selectedVoucher.redeemedCount} redeemed
+                    Redeemed:{" "}
+                    <span className="font-medium">
+                      {selectedVoucher.redeemedCount || 0}
+                    </span>
                   </p>
                 </div>
               </div>
@@ -934,7 +1037,7 @@ const Vendor_Dashboard = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">
-                      Value ($)
+                      Value (Rs.)
                     </label>
                     <input
                       type="number"
@@ -1152,12 +1255,52 @@ const Vendor_Dashboard = () => {
     );
   };
 
+  // Add animation variants
+  const pageTransition = {
+    hidden: { opacity: 0, y: 20 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.25,
+        when: "beforeChildren",
+        staggerChildren: 0.1,
+      },
+    },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: {
+      opacity: 1,
+      scale: 1,
+      transition: { duration: 0.3 },
+    },
+    hover: {
+      scale: 1.02,
+      transition: { duration: 0.2 },
+    },
+  };
+
+  // Update renderDashboardContent
   const renderDashboardContent = () => {
     return (
-      <div className="space-y-6">
+      <motion.div
+        className="space-y-6"
+        initial="hidden"
+        animate="visible"
+        variants={pageTransition}
+      >
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Vendor Dashboard</h1>
-          <button
+          <motion.h1
+            className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
+            variants={cardVariants}
+          >
+            Vendor Dashboard
+          </motion.h1>
+          <motion.button
+            variants={cardVariants}
+            whileHover="hover"
             className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
             onClick={() => {
               setCurrentPage("createVoucher");
@@ -1165,43 +1308,152 @@ const Vendor_Dashboard = () => {
             }}
           >
             Create New Voucher
-          </button>
+          </motion.button>
         </div>
 
         {isLoading ? (
           <div className="text-center py-8">
-            <p>Loading vouchers...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+            <p className="mt-4 text-muted-foreground">Loading vouchers...</p>
           </div>
         ) : error ? (
-          <div className="text-center py-8 text-red-500">
+          <motion.div
+            className="text-center py-8 text-red-500"
+            variants={cardVariants}
+          >
             <p>{error}</p>
-          </div>
+          </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
-            <div className="bg-green-50 p-4 rounded-lg">
-              <h3 className="font-medium text-green-800">Active Vouchers</h3>
-              <p className="text-2xl font-bold">
-                {vouchers.filter((v) => v?.status === "active").length}
-              </p>
-            </div>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <h3 className="font-medium text-yellow-800">Draft Vouchers</h3>
-              <p className="text-2xl font-bold">
-                {vouchers.filter((v) => v?.status === "draft").length}
-              </p>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <h3 className="font-medium text-red-800">Expired Vouchers</h3>
-              <p className="text-2xl font-bold">
-                {vouchers.filter((v) => v?.status === "expired").length}
-              </p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <motion.div
+              variants={cardVariants}
+              whileHover="hover"
+              className="bg-gradient-to-br from-green-50 to-green-100/50 p-6 rounded-lg border border-green-200 shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-500/10 rounded-full">
+                  <Gift className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-green-800">
+                    Active Vouchers
+                  </h3>
+                  <p className="text-3xl font-bold text-green-600">
+                    {vouchers.filter((v) => v?.status === "active").length}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={cardVariants}
+              whileHover="hover"
+              className="bg-gradient-to-br from-yellow-50 to-yellow-100/50 p-6 rounded-lg border border-yellow-200 shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-yellow-500/10 rounded-full">
+                  <Edit className="h-6 w-6 text-yellow-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-yellow-800">
+                    Draft Vouchers
+                  </h3>
+                  <p className="text-3xl font-bold text-yellow-600">
+                    {vouchers.filter((v) => v?.status === "draft").length}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={cardVariants}
+              whileHover="hover"
+              className="bg-gradient-to-br from-red-50 to-red-100/50 p-6 rounded-lg border border-red-200 shadow-sm"
+            >
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-red-500/10 rounded-full">
+                  <Clock className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium text-red-800">Expired Vouchers</h3>
+                  <p className="text-3xl font-bold text-red-600">
+                    {vouchers.filter((v) => v?.status === "expired").length}
+                  </p>
+                </div>
+              </div>
+            </motion.div>
           </div>
         )}
-      </div>
+
+        <motion.div
+          variants={cardVariants}
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6"
+        >
+          <div className="bg-card border rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">Recent Activity</h2>
+            <div className="space-y-4">
+              {vouchers.slice(0, 5).map((voucher) => (
+                <motion.div
+                  key={voucher._id}
+                  variants={cardVariants}
+                  whileHover="hover"
+                  className="flex items-center justify-between p-4 bg-muted rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    <Gift className="h-5 w-5 text-primary" />
+                    <div>
+                      <p className="font-medium">{voucher.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Created{" "}
+                        {format(new Date(voucher.createdAt), "MMM dd, yyyy")}
+                      </p>
+                    </div>
+                  </div>
+                  <StatusBadge status={voucher.status} />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-card border rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4">Quick Stats</h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+                <span className="text-muted-foreground">Total Value</span>
+                <span className="font-bold">
+                  Rs.
+                  {vouchers
+                    .reduce((acc, v) => acc + (v?.value || 0), 0)
+                    .toFixed(2)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+                <span className="text-muted-foreground">Total Redeemed</span>
+                <span className="font-bold">
+                  {vouchers.reduce(
+                    (acc, v) => acc + (v?.redeemedCount || 0),
+                    0
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between items-center p-4 bg-muted rounded-lg">
+                <span className="text-muted-foreground">Average Value</span>
+                <span className="font-bold">
+                  Rs.
+                  {(
+                    vouchers.reduce((acc, v) => acc + (v?.value || 0), 0) /
+                    (vouchers.length || 1)
+                  ).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
     );
   };
 
+  // Update renderDistributionContent
   const renderDistributionContent = () => {
     return (
       <div className="space-y-6">
@@ -1245,60 +1497,344 @@ const Vendor_Dashboard = () => {
     );
   };
 
+  // Update renderAnalyticsContent
   const renderAnalyticsContent = () => {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Analytics</h1>
-        <div className="p-4 bg-card rounded-lg">
-          <h2 className="text-xl font-bold">Analytics Overview</h2>
-          <p className="text-muted-foreground">
-            View detailed analytics about your voucher performance.
-          </p>
+      <motion.div
+        className="space-y-6"
+        initial="hidden"
+        animate="visible"
+        variants={pageTransition}
+      >
+        <motion.h1
+          className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
+          variants={cardVariants}
+        >
+          Analytics
+        </motion.h1>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <motion.div
+            variants={cardVariants}
+            whileHover="hover"
+            className="bg-card border rounded-lg p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-full">
+                <BarChart3 className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Revenue</p>
+                <p className="text-2xl font-bold">
+                  Rs.
+                  {vouchers
+                    .reduce(
+                      (acc, v) =>
+                        acc + (v?.redeemedCount || 0) * (v?.value || 0),
+                      0
+                    )
+                    .toFixed(2)}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            variants={cardVariants}
+            whileHover="hover"
+            className="bg-card border rounded-lg p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-full">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Total Customers</p>
+                <p className="text-2xl font-bold">
+                  {
+                    new Set(
+                      vouchers.flatMap(
+                        (v) => v.redemptions?.map((r) => r.userId) || []
+                      )
+                    ).size
+                  }
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            variants={cardVariants}
+            whileHover="hover"
+            className="bg-card border rounded-lg p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-full">
+                <Gift className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Active Vouchers</p>
+                <p className="text-2xl font-bold">
+                  {vouchers.filter((v) => v?.status === "active").length}
+                </p>
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            variants={cardVariants}
+            whileHover="hover"
+            className="bg-card border rounded-lg p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-primary/10 rounded-full">
+                <Percent className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Redemption Rate</p>
+                <p className="text-2xl font-bold">
+                  {(
+                    (vouchers.reduce(
+                      (acc, v) => acc + (v?.redeemedCount || 0),
+                      0
+                    ) /
+                      vouchers.reduce(
+                        (acc, v) => acc + (v?.sentCount || 0),
+                        0
+                      )) *
+                    100
+                  ).toFixed(1)}
+                  %
+                </p>
+              </div>
+            </div>
+          </motion.div>
         </div>
-      </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <motion.div
+            variants={cardVariants}
+            className="bg-card border rounded-lg p-6"
+          >
+            <h2 className="text-xl font-semibold mb-6">Redemption Timeline</h2>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={vouchers}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip />
+                  <Bar
+                    dataKey="redeemedCount"
+                    fill="#2563eb"
+                    name="Redemptions"
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+
+          <motion.div
+            variants={cardVariants}
+            className="bg-card border rounded-lg p-6"
+          >
+            <h2 className="text-xl font-semibold mb-6">Status Distribution</h2>
+            <div className="h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      {
+                        name: "Active",
+                        value: vouchers.filter((v) => v?.status === "active")
+                          .length,
+                      },
+                      {
+                        name: "Draft",
+                        value: vouchers.filter((v) => v?.status === "draft")
+                          .length,
+                      },
+                      {
+                        name: "Expired",
+                        value: vouchers.filter((v) => v?.status === "expired")
+                          .length,
+                      },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {vouchers.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={["#2563eb", "#eab308", "#ef4444"][index % 3]}
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </motion.div>
+        </div>
+      </motion.div>
     );
   };
 
+  // Update renderSettingsContent
   const renderSettingsContent = () => {
     return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <div className="border-b">
-          <div className="flex space-x-1">
-            <button
-              className={`px-4 py-2 ${
-                activeTab === "general"
-                  ? "border-b-2 border-primary font-medium"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setActiveTab("general")}
+      <motion.div
+        className="space-y-6"
+        initial="hidden"
+        animate="visible"
+        variants={pageTransition}
+      >
+        <motion.h1
+          className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
+          variants={cardVariants}
+        >
+          Settings
+        </motion.h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <motion.div
+              variants={cardVariants}
+              whileHover="hover"
+              className="bg-card border rounded-lg p-6 space-y-6"
             >
-              General
-            </button>
-            <button
-              className={`px-4 py-2 ${
-                activeTab === "notifications"
-                  ? "border-b-2 border-primary font-medium"
-                  : "text-muted-foreground"
-              }`}
-              onClick={() => setActiveTab("notifications")}
+              <h2 className="text-xl font-semibold">Account Settings</h2>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full mt-1 px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Your company name"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    className="w-full mt-1 px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="your@email.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    className="w-full mt-1 px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                    placeholder="Your phone number"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">
+                  Save Changes
+                </button>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={cardVariants}
+              whileHover="hover"
+              className="bg-card border rounded-lg p-6 space-y-6 mt-6"
             >
-              Notifications
-            </button>
+              <h2 className="text-xl font-semibold">
+                Notification Preferences
+              </h2>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Email Notifications</p>
+                    <p className="text-sm text-muted-foreground">
+                      Receive updates about your vouchers
+                    </p>
+                  </div>
+                  <Switch />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Redemption Alerts</p>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified when vouchers are redeemed
+                    </p>
+                  </div>
+                  <Switch />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Marketing Updates</p>
+                    <p className="text-sm text-muted-foreground">
+                      Receive marketing tips and updates
+                    </p>
+                  </div>
+                  <Switch />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          <div>
+            <motion.div
+              variants={cardVariants}
+              whileHover="hover"
+              className="bg-card border rounded-lg p-6 space-y-6"
+            >
+              <h2 className="text-xl font-semibold">Account Status</h2>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-green-50 rounded-lg">
+                  <p className="text-sm font-medium text-green-800">Active</p>
+                  <p className="text-xs text-green-600">
+                    Your account is in good standing
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Member Since
+                  </p>
+                  <p className="text-lg">January 2024</p>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Subscription Plan
+                  </p>
+                  <p className="text-lg">Business Pro</p>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <button className="w-full px-4 py-2 bg-destructive text-destructive-foreground rounded-md text-white hover:bg-destructive/90">
+                  Delete Account
+                </button>
+              </div>
+            </motion.div>
           </div>
         </div>
-        <div className="p-4 bg-card rounded-lg">
-          <h2 className="text-xl font-bold">
-            {activeTab === "general" && "General Settings"}
-            {activeTab === "notifications" && "Notification Settings"}
-          </h2>
-          <p className="text-muted-foreground">
-            {activeTab === "general"
-              ? "Configure your account settings"
-              : "Manage your notification preferences"}
-          </p>
-        </div>
-      </div>
+      </motion.div>
     );
   };
 
