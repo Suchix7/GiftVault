@@ -1,7 +1,13 @@
 import React from "react";
 import { Button } from "../components/ui/button";
 import { Link } from "react-router-dom";
-import { GiftIcon, ShieldCheckIcon, UsersIcon } from "lucide-react";
+import {
+  GiftIcon,
+  ShieldCheckIcon,
+  UsersIcon,
+  SmileIcon,
+  StarIcon,
+} from "lucide-react";
 
 export default function Home() {
   return (
@@ -24,6 +30,7 @@ export default function Home() {
           </div>
         </div>
       </header>
+
       <main className="flex-1">
         <section className="py-20 bg-gradient-to-b from-background to-muted">
           <div className="container mx-auto px-4 text-center">
@@ -35,12 +42,12 @@ export default function Home() {
               security and tracking features.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <Link to="/register">
+              <Link to="/auth">
                 <Button size="lg" className="w-full sm:w-auto">
                   Get Started
                 </Button>
               </Link>
-              <Link to="/learn-more">
+              <Link to="/auth">
                 <Button
                   variant="outline"
                   size="lg"
@@ -96,7 +103,71 @@ export default function Home() {
             </div>
           </div>
         </section>
+
+        {/* New: Testimonials Section */}
+        <section className="py-16 bg-muted/50">
+          <div className="container mx-auto px-4">
+            <h2 className="text-3xl font-bold text-center mb-12">
+              What Our Customers & Vendors Say
+            </h2>
+            <div className="grid md:grid-cols-2 gap-8">
+              <div className="border rounded-lg p-6 bg-card shadow hover:scale-[1.01] transition-transform">
+                <div className="flex items-center gap-2 mb-2">
+                  <SmileIcon className="h-5 w-5 text-primary" />
+                  <p className="font-semibold">Sita R., Customer</p>
+                </div>
+                <p className="text-muted-foreground italic">
+                  "GiftVault made it easy to send birthday vouchers to my team.
+                  They loved the experience!"
+                </p>
+              </div>
+              <div className="border rounded-lg p-6 bg-card shadow hover:scale-[1.01] transition-transform">
+                <div className="flex items-center gap-2 mb-2">
+                  <StarIcon className="h-5 w-5 text-primary" />
+                  <p className="font-semibold">Ram B., Vendor - Burger Hub</p>
+                </div>
+                <p className="text-muted-foreground italic">
+                  "As a vendor, managing vouchers is now streamlined. The
+                  redemption tracking feature is incredibly helpful."
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* New: Brands Section */}
+        <section className="py-16 bg-background">
+          <div className="container mx-auto px-4 text-center">
+            <h2 className="text-3xl font-bold mb-6">
+              Brands That Work With Us
+            </h2>
+            <p className="text-muted-foreground mb-10 max-w-xl mx-auto">
+              Proudly partnered with some of Nepal’s most loved food and
+              beverage brands:
+            </p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-8 gap-y-10 items-center justify-center">
+              {[
+                { src: "src/assets/brands/1.png", alt: "KFC" },
+                { src: "src/assets/brands/2.png", alt: "Kafemandu" },
+                { src: "src/assets/brands/3.png", alt: "Himalayan Java" },
+                { src: "src/assets/brands/4.png", alt: "Silk" },
+              ].map((brand, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-center p-4 bg-white rounded-lg  hover:scale-[1.02] transition-transform"
+                >
+                  <img
+                    src={brand.src}
+                    alt={brand.alt}
+                    className="h-32 object-contain"
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
+
       <footer className="border-t py-6 bg-muted/50">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           <p>© {new Date().getFullYear()} GiftVault. All rights reserved.</p>

@@ -21,7 +21,7 @@ const App = () => {
   return (
     <>
       <Routes>
-        <Route path="/" element={<Home />} />
+        <Route path="/" element={<LandingPage />} />
         <Route path="/landingpage" element={<LandingPage />} />
         <Route path="/books/create" element={<CreateBook />} />
         <Route path="/books/edit/:id" element={<EditBook />} />
@@ -29,7 +29,8 @@ const App = () => {
         <Route path="/books/delete/:id" element={<DeleteBook />} />
         <Route path="/auth" element={<AuthPage />} />
         <Route path="admin" element={<Admin_Dashboards />} />
-
+        <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/register" element={<AuthPage mode="signup" />} />
         {/* Protected Dashboard Routes */}
         <Route
           path="/customer_dashboard"
@@ -55,7 +56,7 @@ const App = () => {
             </ProtectedRoute>
           }
         />
-        <Route path="/customer" element={<Customer_Dashboards/>}></Route>
+        <Route path="/customer" element={<Customer_Dashboards />}></Route>
         <Route path="/vendor" element={<Vendor_Dashboards />}></Route>
         <Route path="/forbidden" element={<Forbidden />} />
       </Routes>
