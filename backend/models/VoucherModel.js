@@ -61,10 +61,15 @@ const voucherSchema = new mongoose.Schema(
       required: true,
     },
     // Temporary field for storing private key during redemption
-    privateKey: {
-      type: String,
-      select: false, // Don't include in normal queries
+    encryptedPrivateKey: {
+      type: {
+        iv: { type: String, required: true },
+        data: { type: String, required: true },
+      },
+      required: true,
+      select: false, // 👈 Apply select:false to the parent
     },
+
     // Track redemptions per user
     redemptions: [
       {

@@ -26,3 +26,26 @@ export const generateVoucherCode = (length = 12) => {
   }
   return code;
 };
+const algorithm = "aes-256-cbc";
+const key = crypto.createHash("sha256").update(process.env.AES_SECRET).digest(); // 32-byte key
+
+// Encrypt any string with AES
+export const encryptAES = (text) => {
+  const iv = crypto.randomBytes(16); // Initialization Vector
+  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  let encrypted = cipher.update(text, "utf8", "base64");
+  encrypted += cipher.final("base64");
+  return {
+    iv: iv.toString("base64"),
+    data: encrypted,
+  };
+};
+
+// Decrypt AES-encrypted data
+export const decryptAES = (encryptedObj) => {
+  const iv = Buffer.from(encryptedObj.iv, "base64");
+  const decipher = crypto.createDecipheriv(algorithm, key, iv);
+  let decrypted = decipher.update(encryptedObj.data, "base64", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+};

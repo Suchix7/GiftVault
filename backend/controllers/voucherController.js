@@ -3,8 +3,9 @@ import { User } from "../models/UserModel.js";
 import {
   encrypt,
   decrypt,
+  encryptAES,
+  decryptAES,
   generateVoucherCode,
-  getPrivateKey,
 } from "../utils/encryption.js";
 import { sendPrivateKeyEmail } from "../utils/emailService.js";
 
@@ -17,15 +18,15 @@ export const createVoucher = async (req, res) => {
     // Generate voucher code and encrypt it with a new RSA key pair
     const voucherCode = generateVoucherCode();
     const { encrypted: encryptedCode, privateKey } = encrypt(voucherCode);
+    const encryptedPrivateKey = encryptAES(privateKey);
 
     // Create the voucher with encrypted code
     const voucher = await Voucher.create({
       ...voucherData,
       vendorId,
       encryptedCode,
-      privateKey, // This will be removed after first use
+      encryptedPrivateKey,
       publicKey: {
-        // Store any public information needed
         length: voucherCode.length,
         prefix: voucherCode.substring(0, 2),
       },
@@ -33,7 +34,7 @@ export const createVoucher = async (req, res) => {
 
     // Remove sensitive data before sending response
     const voucherResponse = voucher.toObject();
-    delete voucherResponse.privateKey;
+    delete voucherResponse.encryptedPrivateKey;
     delete voucherResponse.encryptedCode;
 
     // Add the clear text code to the response
@@ -74,18 +75,23 @@ export const getVouchers = async (req, res) => {
 
     // Include privateKey and encryptedCode in the query
     const vouchers = await Voucher.find(query)
-      .select("+privateKey +encryptedCode")
+      .select("+encryptedPrivateKey +encryptedCode")
+
       .sort({ createdAt: -1 });
 
     // Add decrypted codes for debugging
     const vouchersWithDecryptedCodes = vouchers.map((voucher) => {
       const voucherObj = voucher.toObject();
       try {
-        if (voucherObj.encryptedCode && voucherObj.privateKey) {
+        if (voucherObj.encryptedCode && voucherObj.encryptedPrivateKey) {
+          const decryptedPrivateKey = decryptAES(
+            voucherObj.encryptedPrivateKey
+          );
           const decryptedCode = decrypt(
             voucherObj.encryptedCode,
-            voucherObj.privateKey
+            decryptedPrivateKey
           );
+
           console.log(`[DEBUG] Voucher ${voucherObj._id}:`, {
             name: voucherObj.name,
             decryptedCode,
@@ -101,7 +107,7 @@ export const getVouchers = async (req, res) => {
       }
 
       // Remove sensitive data before sending
-      delete voucherObj.privateKey;
+      delete voucherObj.encryptedPrivateKey;
       delete voucherObj.encryptedCode;
       return voucherObj;
     });
@@ -219,68 +225,62 @@ export const redeemVoucher = async (req, res) => {
   try {
     const customerId = req.user._id;
     const { id } = req.params;
-    let { privateKey } = req.body;
+    const { privateKey } = req.body;
 
-    console.log("[DEBUG] Redeem request received:", {
-      customerId,
-      voucherId: id,
-      privateKeyType: typeof privateKey,
-      privateKeyValue: privateKey,
-      rawBody: JSON.stringify(req.body),
-    });
-
-    // Find the voucher and check if it's active
     const voucher = await Voucher.findOne({
       _id: id,
       status: "active",
-      expiryDate: { $gt: new Date() }, // Check if not expired
-    }).select("+privateKey +encryptedCode"); // Explicitly include both fields
+      expiryDate: { $gt: new Date() },
+    }).select("+encryptedCode +encryptedPrivateKey");
+    console.log(
+      "[DEBUG] voucher.encryptedPrivateKey =",
+      voucher.encryptedPrivateKey
+    );
+
+    console.log("[DEBUG] Voucher fetched:", voucher);
+    console.log("[DEBUG] Incoming body:", req.body);
 
     if (!voucher) {
-      console.log("[DEBUG] Voucher not found or inactive");
       return res.status(404).json({
         success: false,
         message: "Voucher not found or is no longer active",
       });
     }
 
-    console.log("[DEBUG] Found voucher:", {
-      id: voucher._id,
-      status: voucher.status,
-      hasPrivateKey: !!voucher.privateKey,
-      hasEncryptedCode: !!voucher.encryptedCode,
-    });
-
-    // Check if customer has already redeemed this voucher
     if (voucher.isRedeemedByUser(customerId)) {
-      console.log("[DEBUG] Voucher already redeemed by user");
       return res.status(400).json({
         success: false,
         message: "You have already redeemed this voucher",
       });
     }
 
-    // Check if voucher has reached maximum redemptions
     if (
       voucher.maxRedemptions !== -1 &&
       voucher.redeemedCount >= voucher.maxRedemptions
     ) {
-      console.log("[DEBUG] Voucher maximum redemptions reached");
       return res.status(400).json({
         success: false,
         message: "This voucher has reached its maximum number of redemptions",
       });
     }
 
-    // If no private key provided, send the stored one
+    if (
+      !voucher.encryptedPrivateKey ||
+      !voucher.encryptedPrivateKey.iv ||
+      !voucher.encryptedPrivateKey.data
+    ) {
+      throw new Error("Invalid or missing encryptedPrivateKey structure");
+    }
+
+    // 🔐 If no private key provided, decrypt and email it
     if (!privateKey) {
-      // Send private key via email
       try {
+        const decryptedKey = decryptAES(voucher.encryptedPrivateKey);
         await sendPrivateKeyEmail(
           req.user.email,
           req.user.name,
           { name: voucher.name, value: voucher.value },
-          voucher.privateKey
+          decryptedKey
         );
 
         return res.json({
@@ -289,7 +289,7 @@ export const redeemVoucher = async (req, res) => {
           requiresKey: true,
         });
       } catch (emailError) {
-        console.error("[DEBUG] Error sending private key:", emailError);
+        console.error("[ERROR] Failed to send email:", emailError);
         return res.status(500).json({
           success: false,
           message: "Failed to send private key. Please try again.",
@@ -297,34 +297,20 @@ export const redeemVoucher = async (req, res) => {
       }
     }
 
+    // 🔓 If private key was provided by user
     try {
+      const rsaKeyToUse = privateKey || decryptAES(voucher.encryptedPrivateKey);
+
       if (!voucher.encryptedCode) {
-        console.error("[DEBUG] No encrypted code found for voucher");
         return res.status(400).json({
           success: false,
           message: "Voucher has no encrypted code",
         });
       }
 
-      if (!voucher.privateKey) {
-        console.error("[DEBUG] No stored private key found for voucher");
-        return res.status(400).json({
-          success: false,
-          message: "No private key found for this voucher",
-        });
-      }
+      const decryptedCode = decrypt(voucher.encryptedCode, rsaKeyToUse);
 
-      console.log("[DEBUG] Attempting decryption with:", {
-        encryptedCode: voucher.encryptedCode,
-        providedKey: privateKey,
-      });
-
-      // Attempt to decrypt the voucher code
-      const decryptedCode = decrypt(voucher.encryptedCode, privateKey);
-      console.log("[DEBUG] Successfully decrypted code:", decryptedCode);
-
-      // Return the decrypted code without marking as redeemed
-      res.json({
+      return res.json({
         success: true,
         message:
           "Voucher code retrieved successfully. Present this code to the vendor to complete redemption.",
@@ -334,10 +320,6 @@ export const redeemVoucher = async (req, res) => {
         },
       });
     } catch (error) {
-      console.error("[DEBUG] Decryption error:", {
-        error: error.message,
-        stack: error.stack,
-      });
       return res.status(400).json({
         success: false,
         message: `Decryption failed: ${error.message}`,
@@ -348,11 +330,8 @@ export const redeemVoucher = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("[DEBUG] Redemption error:", {
-      error: error.message,
-      stack: error.stack,
-    });
-    res.status(500).json({
+    console.error("[DEBUG] Redemption error:", error);
+    return res.status(500).json({
       success: false,
       message: error.message,
       details: {
@@ -381,19 +360,20 @@ export const findVoucherByCode = async (req, res) => {
     const vouchers = await Voucher.find({
       status: "active",
       expiryDate: { $gt: new Date() },
-    }).select("+privateKey +encryptedCode"); // Include both private key and encrypted code
-
+    }).select("+encryptedPrivateKey +encryptedCode"); // Include both private key and encrypted code
     // Try to find the voucher with matching code
     let matchedVoucher = null;
     for (const voucher of vouchers) {
       try {
         // First try to decrypt if it's an encrypted code
-        if (voucher.encryptedCode && voucher.privateKey) {
+        if (voucher.encryptedCode && voucher.encryptedPrivateKey) {
           try {
+            const decryptedPrivateKey = decryptAES(voucher.encryptedPrivateKey);
             const decryptedCode = decrypt(
               voucher.encryptedCode,
-              voucher.privateKey
+              decryptedPrivateKey
             );
+
             console.log("[DEBUG] Decrypted code:", decryptedCode);
             if (decryptedCode === voucherCode) {
               matchedVoucher = voucher;
@@ -467,8 +447,7 @@ export const completeVoucherRedemption = async (req, res) => {
       _id: voucherId,
       status: "active",
       expiryDate: { $gt: new Date() },
-    }).select("+privateKey +encryptedCode");
-
+    }).select("+encryptedPrivateKey +encryptedCode");
     if (!voucher) {
       return res.status(404).json({
         success: false,
@@ -497,12 +476,14 @@ export const completeVoucherRedemption = async (req, res) => {
     let isCodeValid = false;
 
     // First try to verify encrypted code if it exists
-    if (voucher.encryptedCode && voucher.privateKey) {
+    if (voucher.encryptedCode && voucher.encryptedPrivateKey) {
       try {
+        const decryptedPrivateKey = decryptAES(voucher.encryptedPrivateKey);
         const decryptedCode = decrypt(
           voucher.encryptedCode,
-          voucher.privateKey
+          decryptedPrivateKey
         );
+
         console.log("[DEBUG] Decrypted code:", decryptedCode);
         if (decryptedCode === voucherCode) {
           isCodeValid = true;
