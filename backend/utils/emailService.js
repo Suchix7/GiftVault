@@ -14,18 +14,28 @@ const getPrivateKeyEmailTemplate = (
   customerName,
   voucherName,
   value,
-  privateKey
+  privateKey,
+  type,
+  maxDiscount
 ) => {
-  // Ensure the private key is properly formatted
   const formattedKey =
     typeof privateKey === "string" ? privateKey : JSON.stringify(privateKey);
+
+  const valueText =
+    type === "percentage"
+      ? `offering a <strong>${value}% discount</strong>${
+          maxDiscount && Number(maxDiscount) > 0
+            ? ` (up to <strong>Rs. ${maxDiscount}</strong>)`
+            : ""
+        }`
+      : `worth <strong>Rs. ${Number(value).toFixed(2)}</strong>`;
 
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
       <h2 style="color: #2563eb; text-align: center;">GiftVault Voucher Private Key</h2>
       <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px;">
         <p style="font-size: 16px;">Hello ${customerName},</p>
-        <p style="font-size: 16px;">Thank you for purchasing the ${voucherName} voucher worth Rs. ${value}.</p>
+        <p style="font-size: 16px;">Thank you for purchasing the <strong>${voucherName}</strong> voucher ${valueText}.</p>
         <div style="background-color: #ffffff; padding: 15px; border-radius: 4px; margin: 20px 0;">
           <p style="margin: 0; font-weight: bold; color: #1f2937;">Your Private Key:</p>
           <div style="font-family: monospace; font-size: 14px; margin: 10px 0; padding: 10px; background-color: #f8fafc; border-radius: 4px;">
@@ -69,12 +79,16 @@ export const sendPrivateKeyEmail = async (
         customerName,
         voucherDetails.name,
         voucherDetails.value,
-        privateKey
+        privateKey,
+        voucherDetails.type,
+        voucherDetails.maxDiscount
       ),
     };
 
     await transporter.sendMail(mailOptions);
     console.log("[Email] Private key sent successfully to:", customerEmail);
+    console.log("Voucher Details:", voucherDetails);
+
     return true;
   } catch (error) {
     console.error("[Email] Error sending private key email:", error);

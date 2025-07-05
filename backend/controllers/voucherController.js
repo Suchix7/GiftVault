@@ -279,7 +279,12 @@ export const redeemVoucher = async (req, res) => {
         await sendPrivateKeyEmail(
           req.user.email,
           req.user.name,
-          { name: voucher.name, value: voucher.value },
+          {
+            name: voucher.name,
+            value: voucher.value,
+            type: voucher.type,
+            maxDiscount: voucher.maxDiscount,
+          },
           decryptedKey
         );
 

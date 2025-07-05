@@ -82,9 +82,11 @@ const Vendor_Dashboard = () => {
   const [newVoucher, setNewVoucher] = useState({
     name: "",
     value: "",
+    type: "amount",
     description: "",
     campaign: "",
     expiryDate: "",
+    maxDiscount: "",
     color: "#000000",
   });
 
@@ -406,25 +408,89 @@ const Vendor_Dashboard = () => {
 
               <div>
                 <label
-                  htmlFor="value"
+                  htmlFor="type"
                   className="block text-sm font-medium mb-1"
                 >
-                  Value (Rs.)
+                  Voucher Type
                 </label>
-                <input
-                  id="value"
-                  type="number"
-                  min="10"
-                  max="100000"
-                  value={newVoucher.value}
+                <select
+                  id="type"
+                  value={newVoucher.type}
                   onChange={(e) =>
-                    setNewVoucher({ ...newVoucher, value: e.target.value })
+                    setNewVoucher({ ...newVoucher, type: e.target.value })
                   }
-                  placeholder="50"
-                  className="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                  required
-                />
+                  className="w-full px-3 py-2 bg-background border rounded-md"
+                >
+                  <option value="amount">Flat Amount</option>
+                  <option value="percentage">Percentage</option>
+                </select>
               </div>
+
+              {/* Dynamic Input Based on Type */}
+              {newVoucher.type === "amount" ? (
+                <div>
+                  <label
+                    htmlFor="value"
+                    className="block text-sm font-medium mb-1"
+                  >
+                    Value (Rs.)
+                  </label>
+                  <input
+                    id="value"
+                    type="number"
+                    min="1"
+                    value={newVoucher.value}
+                    onChange={(e) =>
+                      setNewVoucher({ ...newVoucher, value: e.target.value })
+                    }
+                    className="w-full px-3 py-2 border rounded-md"
+                    required
+                  />
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label
+                      htmlFor="value"
+                      className="block text-sm font-medium mb-1"
+                    >
+                      Discount (%)
+                    </label>
+                    <input
+                      id="value"
+                      type="number"
+                      min="1"
+                      max="100"
+                      value={newVoucher.value}
+                      onChange={(e) =>
+                        setNewVoucher({ ...newVoucher, value: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="maxDiscount"
+                      className="block text-sm font-medium mb-1"
+                    >
+                      Max Discount (Rs.) [Optional]
+                    </label>
+                    <input
+                      id="maxDiscount"
+                      type="number"
+                      value={newVoucher.maxDiscount}
+                      onChange={(e) =>
+                        setNewVoucher({
+                          ...newVoucher,
+                          maxDiscount: e.target.value,
+                        })
+                      }
+                      className="w-full px-3 py-2 border rounded-md"
+                    />
+                  </div>
+                </>
+              )}
 
               <div>
                 <label
@@ -611,10 +677,16 @@ const Vendor_Dashboard = () => {
 
                   <div className="flex justify-center">
                     <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 text-white font-bold text-2xl">
-                      Rs.{newVoucher.value || "0"}
+                      {newVoucher.type === "percentage"
+                        ? `${newVoucher.value}% off`
+                        : `Rs.${newVoucher.value}`}
                     </div>
                   </div>
-
+                  <div className="text-center italic text-white/80 text-sm">
+                    {newVoucher.type === "percentage"
+                      ? `Applicable Upto Rs.${newVoucher.maxDiscount}`
+                      : ``}
+                  </div>
                   {newVoucher.expiryDate && (
                     <div className="text-center text-white/80 text-sm">
                       Valid until{" "}
@@ -779,7 +851,9 @@ const Vendor_Dashboard = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        Rs.{voucher.value.toFixed(2)}
+                        {voucher.type === "percentage"
+                          ? `${voucher.value}% off`
+                          : `Rs.${voucher.value}`}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <StatusBadge status={voucher.status} />
@@ -923,7 +997,7 @@ const Vendor_Dashboard = () => {
         {/* View Modal */}
         {isViewModalOpen && selectedVoucher && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md overflow-y-auto max-h-[90vh]">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">{selectedVoucher.name}</h2>
                 <button
@@ -935,10 +1009,26 @@ const Vendor_Dashboard = () => {
               </div>
 
               <div className="space-y-4">
+                {/* Logo */}
+                {selectedVoucher.logo && (
+                  <div className="flex justify-center mb-2">
+                    <div className="w-20 h-20 border rounded-md overflow-hidden">
+                      <img
+                        src={selectedVoucher.logo}
+                        alt="Voucher Logo"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Voucher ID */}
                 <div>
                   <p className="text-sm text-gray-500">Voucher ID</p>
                   <p className="font-mono text-sm">{selectedVoucher._id}</p>
                 </div>
+
+                {/* Vendor */}
                 <div>
                   <p className="text-sm text-gray-500">Vendor</p>
                   <p className="font-medium">
@@ -948,6 +1038,8 @@ const Vendor_Dashboard = () => {
                     {selectedVoucher.vendor?.email || ""}
                   </p>
                 </div>
+
+                {/* Decrypted Code */}
                 {selectedVoucher.decryptedCode && (
                   <div>
                     <p className="text-sm text-gray-500">Decrypted Code</p>
@@ -956,22 +1048,69 @@ const Vendor_Dashboard = () => {
                     </p>
                   </div>
                 )}
+
+                {/* Type */}
+                <div>
+                  <p className="text-sm text-gray-500">Voucher Type</p>
+                  <p className="capitalize font-medium">
+                    {selectedVoucher.type}
+                  </p>
+                </div>
+
+                {/* Value */}
                 <div>
                   <p className="text-sm text-gray-500">Value</p>
-                  <p>${selectedVoucher.value.toFixed(2)}</p>
+                  <p>
+                    {selectedVoucher.type === "percentage"
+                      ? `${selectedVoucher.value}% off`
+                      : `Rs.${selectedVoucher.value}`}
+                  </p>
                 </div>
+
+                {/* Max Discount */}
+                {selectedVoucher.type === "percentage" &&
+                  selectedVoucher.maxDiscount && (
+                    <div>
+                      <p className="text-sm text-gray-500">Max Discount</p>
+                      <p>Up to Rs.{selectedVoucher.maxDiscount}</p>
+                    </div>
+                  )}
+
+                {/* Color */}
+                <div>
+                  <p className="text-sm text-gray-500">Color</p>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-6 h-6 rounded-full border"
+                      style={{
+                        backgroundColor: selectedVoucher.color || "#000",
+                      }}
+                    ></div>
+                    <span className="text-sm">
+                      {selectedVoucher.color || "#000000"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status */}
                 <div>
                   <p className="text-sm text-gray-500">Status</p>
                   <StatusBadge status={selectedVoucher.status} />
                 </div>
+
+                {/* Description */}
                 <div>
                   <p className="text-sm text-gray-500">Description</p>
                   <p>{selectedVoucher.description || "No description"}</p>
                 </div>
+
+                {/* Campaign */}
                 <div>
                   <p className="text-sm text-gray-500">Campaign</p>
                   <p>{selectedVoucher.campaign || "No campaign"}</p>
                 </div>
+
+                {/* Created */}
                 <div>
                   <p className="text-sm text-gray-500">Created</p>
                   <p>
@@ -981,6 +1120,8 @@ const Vendor_Dashboard = () => {
                     )}
                   </p>
                 </div>
+
+                {/* Expiry */}
                 <div>
                   <p className="text-sm text-gray-500">Expires</p>
                   <p>
@@ -990,6 +1131,8 @@ const Vendor_Dashboard = () => {
                     )}
                   </p>
                 </div>
+
+                {/* Usage */}
                 <div>
                   <p className="text-sm text-gray-500">Usage</p>
                   <p>
@@ -1007,7 +1150,7 @@ const Vendor_Dashboard = () => {
         {/* Edit Modal */}
         {isEditModalOpen && selectedVoucher && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md overflow-y-auto max-h-[95vh]">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-xl font-bold">Edit Voucher</h2>
                 <button
@@ -1018,32 +1161,87 @@ const Vendor_Dashboard = () => {
                 </button>
               </div>
 
-              <form onSubmit={handleUpdateVoucher}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Name
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedVoucher.name}
-                      onChange={(e) =>
-                        setSelectedVoucher({
-                          ...selectedVoucher,
-                          name: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-md"
-                      required
-                    />
-                  </div>
+              <form onSubmit={handleUpdateVoucher} className="space-y-4">
+                {/* Name */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={selectedVoucher.name}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        name: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-md"
+                    required
+                  />
+                </div>
+
+                {/* Type */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">Type</label>
+                  <select
+                    value={selectedVoucher.type}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        type: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="amount">Flat Amount</option>
+                    <option value="percentage">Percentage</option>
+                  </select>
+                </div>
+
+                {/* Value + Max Discount */}
+                {selectedVoucher.type === "percentage" ? (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Discount (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        value={selectedVoucher.value}
+                        onChange={(e) =>
+                          setSelectedVoucher({
+                            ...selectedVoucher,
+                            value: parseFloat(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">
+                        Max Discount (Rs.)
+                      </label>
+                      <input
+                        type="number"
+                        value={selectedVoucher.maxDiscount || ""}
+                        onChange={(e) =>
+                          setSelectedVoucher({
+                            ...selectedVoucher,
+                            maxDiscount: e.target.value,
+                          })
+                        }
+                        className="w-full px-3 py-2 border rounded-md"
+                      />
+                    </div>
+                  </>
+                ) : (
                   <div>
                     <label className="block text-sm font-medium mb-1">
                       Value (Rs.)
                     </label>
                     <input
                       type="number"
-                      step="0.01"
                       value={selectedVoucher.value}
                       onChange={(e) =>
                         setSelectedVoucher({
@@ -1055,78 +1253,144 @@ const Vendor_Dashboard = () => {
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Description
-                    </label>
-                    <textarea
-                      value={selectedVoucher.description || ""}
-                      onChange={(e) =>
-                        setSelectedVoucher({
-                          ...selectedVoucher,
-                          description: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-md"
-                      rows={3}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Campaign
-                    </label>
-                    <input
-                      type="text"
-                      value={selectedVoucher.campaign || ""}
-                      onChange={(e) =>
-                        setSelectedVoucher({
-                          ...selectedVoucher,
-                          campaign: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-md"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Status
-                    </label>
-                    <select
-                      value={selectedVoucher.status}
-                      onChange={(e) =>
-                        setSelectedVoucher({
-                          ...selectedVoucher,
-                          status: e.target.value,
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-md"
-                    >
-                      <option value="active">Active</option>
-                      <option value="draft">Draft</option>
-                      <option value="expired">Expired</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Expiry Date
-                    </label>
-                    <input
-                      type="datetime-local"
-                      value={format(
-                        new Date(selectedVoucher.expiryDate),
-                        "yyyy-MM-dd'T'HH:mm"
-                      )}
-                      onChange={(e) =>
-                        setSelectedVoucher({
-                          ...selectedVoucher,
-                          expiryDate: new Date(e.target.value),
-                        })
-                      }
-                      className="w-full px-3 py-2 border rounded-md"
-                    />
-                  </div>
+                )}
+
+                {/* Description */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={selectedVoucher.description || ""}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        description: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-md"
+                    rows={2}
+                  />
                 </div>
 
+                {/* Campaign */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Campaign
+                  </label>
+                  <select
+                    value={selectedVoucher.campaign || ""}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        campaign: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="">Select a campaign</option>
+                    <option value="holiday">Holiday Campaign</option>
+                    <option value="birthday">Birthday Rewards</option>
+                    <option value="welcome">Welcome Bonus</option>
+                    <option value="loyalty">Loyalty Program</option>
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={selectedVoucher.status}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        status: e.target.value,
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-md"
+                  >
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="expired">Expired</option>
+                  </select>
+                </div>
+
+                {/* Expiry Date */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Expiry Date
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={format(
+                      new Date(selectedVoucher.expiryDate),
+                      "yyyy-MM-dd'T'HH:mm"
+                    )}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        expiryDate: new Date(e.target.value),
+                      })
+                    }
+                    className="w-full px-3 py-2 border rounded-md"
+                  />
+                </div>
+
+                {/* Color */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Voucher Color
+                  </label>
+                  <input
+                    type="color"
+                    value={selectedVoucher.color || "#000000"}
+                    onChange={(e) =>
+                      setSelectedVoucher({
+                        ...selectedVoucher,
+                        color: e.target.value,
+                      })
+                    }
+                    className="w-16 h-10 border rounded-md"
+                  />
+                </div>
+
+                {/* Logo Upload */}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Custom Logo
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setSelectedVoucher((prev) => ({
+                            ...prev,
+                            logo: reader.result,
+                          }));
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                    className="w-full"
+                  />
+                  {selectedVoucher.logo && (
+                    <div className="mt-2 w-20 h-20 border rounded-md overflow-hidden">
+                      <img
+                        src={selectedVoucher.logo}
+                        alt="Logo"
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Buttons */}
                 <div className="mt-6 flex justify-end space-x-3">
                   <button
                     type="button"

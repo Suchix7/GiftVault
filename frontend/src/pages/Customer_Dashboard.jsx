@@ -247,10 +247,16 @@ export default function CustomerDashboard() {
 
                   <div className="flex justify-center">
                     <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 text-white font-bold text-2xl">
-                      Rs. {voucher.value} Off
+                      {voucher.type === "percentage"
+                        ? `${voucher.value}% off`
+                        : `Rs.${voucher.value}`}
                     </div>
                   </div>
-
+                  <div className="text-center italic text-white/80 text-sm">
+                    {voucher.type === "percentage"
+                      ? `Upto Rs.${voucher.maxDiscount}`
+                      : `Enjoy the offer`}
+                  </div>
                   {(voucher.expiryDate || redemptionDate) && (
                     <div className="text-center text-white/80 text-sm">
                       {hasRedemptionCode
