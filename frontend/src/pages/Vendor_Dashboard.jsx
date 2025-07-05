@@ -414,6 +414,8 @@ const Vendor_Dashboard = () => {
                 <input
                   id="value"
                   type="number"
+                  min="10"
+                  max="100000"
                   value={newVoucher.value}
                   onChange={(e) =>
                     setNewVoucher({ ...newVoucher, value: e.target.value })
