@@ -334,16 +334,15 @@ const Admin_Dashboard = () => {
           role = "user";
       }
 
-      // Validate required fields
-      if (!userData.name || !userData.email || !userData.password) {
-        throw new Error("Name, email, and password are required");
-      }
-
       if (editingUser) {
-        // Prepare update data - exclude password if empty
+        // Validate required fields for edit
+        if (!userData.name || !userData.email) {
+          throw new Error("Name and email are required");
+        }
+
         const updateData = { ...userData };
         if (!updateData.password || updateData.password.trim() === "") {
-          delete updateData.password;
+          delete updateData.password; // Don’t send empty password
         }
 
         const response = await axios.patch(
@@ -357,14 +356,17 @@ const Admin_Dashboard = () => {
           }
         );
 
-        // Update state with the new user data
         setUsers(
           users.map((user) =>
             user._id === editingUser._id ? response.data.user : user
           )
         );
       } else {
-        // Create new user
+        // Validate required fields for new user
+        if (!userData.name || !userData.email || !userData.password) {
+          throw new Error("Name, email, and password are required");
+        }
+
         const response = await axios.post("/users", {
           name: userData.name,
           email: userData.email,
@@ -374,6 +376,7 @@ const Admin_Dashboard = () => {
           number: userData.number || undefined,
           isApproved: creatingUserType === "Vendor" ? false : true,
         });
+
         setUsers([...users, response.data]);
       }
 
@@ -387,6 +390,7 @@ const Admin_Dashboard = () => {
       );
     }
   };
+
   const CreateUserModal = ({
     isOpen,
     onClose,
@@ -438,12 +442,12 @@ const Admin_Dashboard = () => {
 
       try {
         // Validate required fields
-        if (
-          !formData.name ||
-          !formData.email ||
-          (!editingUser && !formData.password)
-        ) {
-          throw new Error("Please fill in all required fields");
+        if (!formData.name || !formData.email) {
+          throw new Error("Name and email are required");
+        }
+
+        if (!editingUser && !formData.password) {
+          throw new Error("Password is required for new users");
         }
 
         await onCreate(formData);
@@ -523,10 +527,10 @@ const Admin_Dashboard = () => {
               <input
                 type="password"
                 name="password"
-                value={formData.password}
+                defaultValue=""
                 onChange={handleChange}
                 required={!editingUser}
-                minLength={6}
+                minLength={editingUser ? 0 : 6}
                 className="w-full px-3 py-2 border border-input rounded-md"
               />
             </div>
@@ -900,9 +904,6 @@ const Admin_Dashboard = () => {
                               <div className="text-sm">
                                 {vendor.vouchersCreated || 0} created
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                {vendor.vouchersRedeemed || 0} redeemed
-                              </div>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <span
@@ -943,14 +944,14 @@ const Admin_Dashboard = () => {
                             <td className="px-2 py-8 whitespace-nowrap flex justify-center gap-4 items-center text-right">
                               <button
                                 onClick={() => handleViewUser(vendor)}
-                                className="text-primary hover:text-primary/80"
+                                className="text-blue-500 hover:text-blue-500/80"
                                 title="View"
                               >
                                 <Eye className="h-4 w-4" />
                               </button>
                               <button
                                 onClick={() => handleEditUser(vendor)}
-                                className="text-primary hover:text-primary/80"
+                                className="text-green-600 hover:text-green-800/80"
                                 title="Edit"
                               >
                                 <Edit className="h-4 w-4" />
@@ -1110,14 +1111,14 @@ const Admin_Dashboard = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleViewUser(customer)}
-                              className="text-primary hover:text-primary/80"
+                              className="text-blue-600 hover:text-blue-600/80"
                               title="View"
                             >
                               <Eye className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleEditUser(customer)}
-                              className="text-primary hover:text-primary/80"
+                              className="text-green-600 hover:text-green-800/80"
                               title="Edit"
                             >
                               <Edit className="h-4 w-4" />
@@ -1275,14 +1276,14 @@ const Admin_Dashboard = () => {
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleViewUser(admin)}
-                              className="text-primary hover:text-primary/80"
+                              className="text-blue-600 hover:text-blue-600/80"
                               title="View"
                             >
                               <Eye className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleEditUser(admin)}
-                              className="text-primary hover:text-primary/80"
+                              className="text-green-600 hover:text-green-800/80"
                               title="Edit"
                             >
                               <Edit className="h-4 w-4" />

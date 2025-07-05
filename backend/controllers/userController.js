@@ -1,6 +1,8 @@
 import { User } from "../models/UserModel.js";
 import bcrypt from "bcryptjs";
 
+import Voucher from "../models/VoucherModel.js";
+
 // Create a new user
 export const createUser = async (req, res) => {
   try {
@@ -39,6 +41,36 @@ export const createUser = async (req, res) => {
     });
   }
 };
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find();
+
+    const enrichedUsers = await Promise.all(
+      users.map(async (user) => {
+        let vouchersCreated = 0;
+        let vouchersRedeemed = user.redeemedVouchers?.length || 0;
+
+        if (user.role === "vendor") {
+          vouchersCreated = await Voucher.countDocuments({
+            vendorId: user._id,
+          });
+        }
+
+        return {
+          ...user.toObject(),
+          vouchersCreated,
+          vouchersRedeemed,
+        };
+      })
+    );
+
+    res.json(enrichedUsers);
+  } catch (err) {
+    console.error("Error enriching users:", err);
+    res.status(500).json({ message: "Failed to fetch user data" });
+  }
+};
+
 // Update any user fields
 // export const updateUser = async (req, res) => {
 //   try {

@@ -1,18 +1,14 @@
 import express from "express";
 import { User } from "../models/UserModel.js";
-import { createUser, updateUser } from "../controllers/userController.js";
+import {
+  createUser,
+  updateUser,
+  getAllUsers,
+} from "../controllers/userController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
-router.get("/", async (req, res) => {
-  try {
-    const users = await User.find();
-    res.json(users);
-  } catch (error) {
-    console.error("Error fetching users:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
+router.get("/", getAllUsers); // 👈 This will now enrich every user object
 
 router.get("/profile", protect, async (req, res) => {
   try {
@@ -42,6 +38,7 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+router.get("/users", getAllUsers);
 router.post("/", createUser);
 router.patch("/:id", protect, updateUser);
 router.patch("/approve/:vendorId", async (req, res) => {

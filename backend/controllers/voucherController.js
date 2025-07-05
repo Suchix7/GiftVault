@@ -362,10 +362,14 @@ export const findVoucherByCode = async (req, res) => {
     console.log("[DEBUG] Finding voucher with code:", voucherCode);
 
     // Find all active vouchers that haven't been redeemed
+    const vendorId = req.user._id;
+    console.log("[DEBUG] Vendor ID:", vendorId);
     const vouchers = await Voucher.find({
+      vendorId: vendorId,
       status: "active",
       expiryDate: { $gt: new Date() },
-    }).select("+encryptedPrivateKey +encryptedCode"); // Include both private key and encrypted code
+    }).select("+encryptedPrivateKey +encryptedCode");
+    // Include both private key and encrypted code
     // Try to find the voucher with matching code
     let matchedVoucher = null;
     for (const voucher of vouchers) {
