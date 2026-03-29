@@ -10,6 +10,8 @@ import {
   redeemVoucher,
   completeVoucherRedemption,
   findVoucherByCode,
+  uploadVoucherImage,
+  upload,
 } from "../controllers/voucherController.js";
 import { protect, isVendor } from "../middleware/authMiddleware.js";
 
@@ -21,6 +23,13 @@ router.post("/", protect, isVendor, createVoucher); // Create voucher
 router.patch("/:id", protect, isVendor, updateVoucher); // Update voucher
 router.delete("/:id", protect, isVendor, deleteVoucher); // Delete voucher
 router.get("/:id", protect, isVendor, getVoucher); // Get single vendor voucher
+router.post(
+  "/upload-image",
+  protect,
+  isVendor,
+  upload.single("image"),
+  uploadVoucherImage,
+); // Upload voucher image
 router.post("/redeem/complete", protect, isVendor, completeVoucherRedemption);
 
 // Redemption routes

@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import path from "path";
 import { PORT } from "./config.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -23,14 +24,21 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Serve static files from uploads directory
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 // CORS configuration
 app.use(
   cors({
-    origin: "http://localhost:5173",
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5179",
+      "http://localhost:5178",
+    ],
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 // API Routes

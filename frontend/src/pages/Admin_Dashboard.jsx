@@ -1,18 +1,25 @@
 "use client";
-import LogoutButton from "@/components/LogoutButton";
-import { useState, useEffect } from "react";
+
+import React, { useState, useEffect } from "react";
 import axios from "axios";
+import { format } from "date-fns";
+import { toast } from "sonner";
+import LogoutButton from "@/components/LogoutButton";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Filter,
-  Check,
   X,
+  LayoutDashboard,
   Search,
   Edit,
   Trash2,
   Eye,
-  LayoutDashboard,
   Plus,
   Users,
+  ShieldCheck,
+  TrendingUp,
+  Activity,
+  Check,
+  Gift,
 } from "lucide-react";
 import {
   PieChart,
@@ -27,614 +34,541 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { format } from "date-fns";
-import { cn } from "../lib/utils";
 
-import { toast } from "sonner";
+// --- UTILITY ---
+// Replace this with your actual cn utility or just use template literals if you don't have it
+const cn = (...classes) => classes.filter(Boolean).join(" ");
+
+// ==========================================
+// SUB-COMPONENTS: MODALS & CARDS
+// ==========================================
+
+const StatCard = ({ title, value, sub, icon: Icon, trend }) => (
+  <motion.div
+    whileHover={{ y: -5 }}
+    className="bg-white border border-gray-100 rounded-[2rem] p-6 shadow-sm flex flex-col justify-between group transition-all hover:shadow-xl hover:shadow-black/5"
+  >
+    <div className="flex justify-between items-start mb-4">
+      <div className="p-3 bg-gray-50 rounded-2xl group-hover:bg-black group-hover:text-white transition-colors duration-500">
+        <Icon size={20} />
+      </div>
+      {trend && (
+        <span className="text-[10px] font-black text-emerald-500 bg-emerald-50 px-2 py-1 rounded-lg">
+          ACTIVE
+        </span>
+      )}
+    </div>
+    <div>
+      <p className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+        {title}
+      </p>
+      <h3 className="text-3xl font-black tracking-tighter text-gray-900 mt-1">
+        {value}
+      </h3>
+      <p className="text-[10px] font-medium text-gray-400 mt-2">{sub}</p>
+    </div>
+  </motion.div>
+);
+
 const ViewUserModal = ({ isOpen, onClose, user }) => {
   if (!isOpen || !user) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-background rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">User Details</h2>
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm">
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 md:p-10 relative shadow-2xl"
+      >
+        <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto mb-8 sm:hidden" />
+
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tighter">
+              Identity Card
+            </h2>
+            <p className="text-[10px] font-mono text-gray-400 uppercase mt-1">
+              UID: {user._id}
+            </p>
+          </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground"
+            className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
           >
-            <X className="h-5 w-5" />
+            <X size={20} />
           </button>
         </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground">
-              Name
-            </label>
-            <p className="mt-1 text-sm">{user.name}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground">
-              Email
-            </label>
-            <p className="mt-1 text-sm">{user.email}</p>
-          </div>
-          {user.companyName && (
-            <div>
-              <label className="block text-sm font-medium text-muted-foreground">
-                Company Name
-              </label>
-              <p className="mt-1 text-sm">{user.companyName}</p>
+
+        <div className="space-y-6">
+          <div className="p-6 bg-gray-50 rounded-3xl border border-gray-100">
+            <div className="grid grid-cols-2 gap-6">
+              {[
+                { label: "Full Name", val: user.name },
+                { label: "Email Hash", val: user.email },
+                { label: "Corporate Entity", val: user.companyName || "N/A" },
+                { label: "Authorized Phone", val: user.number || "Not synced" },
+              ].map((item, i) => (
+                <div key={i} className="break-words">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">
+                    {item.label}
+                  </p>
+                  <p className="text-sm font-bold text-gray-900">{item.val}</p>
+                </div>
+              ))}
             </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground">
-              Phone
-            </label>
-            <p className="mt-1 text-sm">{user.number || "Not provided"}</p>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground">
-              Role
-            </label>
-            <p className="mt-1 text-sm capitalize">{user.role}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground">
-              Status
-            </label>
-            <p className="mt-1 text-sm">
-              {user.isApproved ? "Approved" : "Pending Approval"}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-muted-foreground">
-              Created At
-            </label>
-            <p className="mt-1 text-sm">
-              {user.createdAt
-                ? new Date(user.createdAt).toLocaleString()
-                : "Unknown"}
-            </p>
+
+          <div className="flex items-center justify-between px-2">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">
+                Role Classification
+              </p>
+              <span className="text-xs font-bold uppercase bg-black text-white px-3 py-1 rounded-full">
+                {user.role}
+              </span>
+            </div>
+            <div className="text-right">
+              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">
+                Protocol Status
+              </p>
+              <span
+                className={cn(
+                  "text-xs font-bold uppercase tracking-widest",
+                  user.isApproved ? "text-emerald-600" : "text-amber-600",
+                )}
+              >
+                {user.isApproved ? "Verified" : "Pending Sync"}
+              </span>
+            </div>
           </div>
         </div>
-        <div className="mt-6 flex justify-end">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            Close
-          </button>
-        </div>
-      </div>
+
+        <button
+          onClick={onClose}
+          className="w-full mt-8 py-4 bg-gray-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl"
+        >
+          Close Identity File
+        </button>
+      </motion.div>
     </div>
   );
 };
 
-function UserList({ users, loading, error }) {
-  if (loading) return <p>Loading...</p>;
-  if (error) return <p>Error loading users</p>;
+const CreateUserModal = ({
+  isOpen,
+  onClose,
+  onCreate,
+  userType,
+  editingUser,
+}) => {
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    companyName: "",
+    number: "",
+  });
+  const [loading, setLoading] = useState(false);
 
-  // Approved & Unapproved Users
-  const approvedUsers = users.filter((user) => user.isApproved);
-  const unapprovedUsers = users.filter((user) => !user.isApproved);
+  useEffect(() => {
+    if (editingUser) {
+      setFormData({
+        name: editingUser.name,
+        email: editingUser.email,
+        password: "",
+        companyName: editingUser.companyName || "",
+        number: editingUser.number || "",
+      });
+    } else {
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        companyName: "",
+        number: "",
+      });
+    }
+  }, [editingUser, isOpen]);
 
-  // Count by Role (Approved)
-  const approvedAdmins = approvedUsers.filter((u) => u.role === "admin").length;
-  const approvedVendors = approvedUsers.filter(
-    (u) => u.role === "vendor"
-  ).length;
-  const approvedRegularUsers = approvedUsers.filter(
-    (u) => u.role === "user"
-  ).length;
-
-  // Count by Role (Unapproved)
-  const unapprovedVendors = unapprovedUsers.filter(
-    (u) => u.role === "vendor"
-  ).length;
-
-  // Total Users (Regardless of Approval)
-  const totalRegularUsers = users.filter((u) => u.role === "user").length;
-  const totalVendors = users.filter((u) => u.role === "vendor").length;
-  const totalAdmins = users.filter((u) => u.role === "admin").length;
-
-  // Data for charts
-  const userDistributionData = [
-    { name: "Customers", value: totalRegularUsers },
-    { name: "Vendors", value: totalVendors },
-    { name: "Admins", value: totalAdmins },
-  ];
-
-  const vendorApprovalData = [
-    { name: "Approved", value: approvedVendors },
-    { name: "Pending", value: unapprovedVendors },
-  ];
-
-  return (
-    <div className="user-list">
-      {users.length === 0 ? (
-        <p>No users found</p>
-      ) : (
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-            <div className="text-sm text-muted-foreground">
-              {format(new Date(), "MMMM dd, yyyy")}
-            </div>
-          </div>
-
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-card border border-border rounded-lg p-6 hover:scale-[1.01] transition-transform">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Vendors
-                  </p>
-                  <h3 className="text-3xl font-bold mt-2">{totalVendors}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {approvedVendors} Approved, {unapprovedVendors} Unapproved
-                  </p>
-                </div>
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-6 hover:scale-[1.01] transition-transform">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Customers
-                  </p>
-                  <h3 className="text-3xl font-bold mt-2">
-                    {totalRegularUsers}
-                  </h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Total: {approvedRegularUsers}
-                  </p>
-                </div>
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-6 hover:scale-[1.01] transition-transform">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Admin
-                  </p>
-                  <h3 className="text-3xl font-bold mt-2">{totalAdmins}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Total: {approvedAdmins}
-                  </p>
-                </div>
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-6 hover:scale-[1.01] transition-transform">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Total Users
-                  </p>
-                  <h3 className="text-3xl font-bold mt-2">{users.length}</h3>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Across all roles
-                  </p>
-                </div>
-                <div className="bg-primary/10 p-2 rounded-full">
-                  <Users className="h-6 w-6 text-primary" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Charts Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* User Distribution Pie Chart */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4">User Distribution</h3>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={userDistributionData}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) =>
-                        `${name}: ${(percent * 100).toFixed(0)}%`
-                      }
-                    >
-                      {userDistributionData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={
-                            ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][
-                              index % 4
-                            ]
-                          }
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Vendor Approval Status Bar Chart */}
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                Vendor Approval Status
-              </h3>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={vendorApprovalData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" fill="#8884d8" name="Vendors">
-                      {vendorApprovalData.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={index === 0 ? "#00C49F" : "#FF8042"}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const Admin_Dashboard = () => {
-  const [currentPage, setCurrentPage] = useState("dashboard");
-  const [activeTab, setActiveTab] = useState("overview");
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [creatingUserType, setCreatingUserType] = useState(null);
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  const [viewingUser, setViewingUser] = useState(null);
-  const [editingUser, setEditingUser] = useState(null);
-
-  const createUser = async (userData) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
     try {
-      let role;
-      switch (creatingUserType) {
-        case "Vendor":
-          role = "vendor";
-          break;
-        case "Admin":
-          role = "admin";
-          break;
-        default:
-          role = "user";
-      }
-
-      if (editingUser) {
-        // Validate required fields for edit
-        if (!userData.name || !userData.email) {
-          throw new Error("Name and email are required");
-        }
-
-        const updateData = { ...userData };
-        if (!updateData.password || updateData.password.trim() === "") {
-          delete updateData.password; // Don’t send empty password
-        }
-
-        const response = await axios.patch(
-          `/users/${editingUser._id}`,
-          updateData,
-          {
-            withCredentials: true,
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        setUsers(
-          users.map((user) =>
-            user._id === editingUser._id ? response.data.user : user
-          )
-        );
-      } else {
-        // Validate required fields for new user
-        if (!userData.name || !userData.email || !userData.password) {
-          throw new Error("Name, email, and password are required");
-        }
-
-        const response = await axios.post("/users", {
-          name: userData.name,
-          email: userData.email,
-          password: userData.password,
-          role,
-          companyName: userData.companyName || undefined,
-          number: userData.number || undefined,
-          isApproved: creatingUserType === "Vendor" ? false : true,
-        });
-
-        setUsers([...users, response.data]);
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Error creating/updating user:", error);
-      throw new Error(
-        error.response?.data?.message ||
-          error.message ||
-          (editingUser ? "Failed to update user" : "Failed to create user")
+      await onCreate(formData);
+      onClose();
+      toast.success(
+        editingUser
+          ? "Entity Modified Successfully"
+          : "Entity Provisioned Successfully",
       );
+    } catch (error) {
+      toast.error(error.message || "Failed to process entity");
+    } finally {
+      setLoading(false);
     }
   };
 
-  const CreateUserModal = ({
-    isOpen,
-    onClose,
-    onCreate,
-    userType,
-    editingUser,
-  }) => {
-    const [formData, setFormData] = useState({
-      name: "",
-      email: "",
-      password: "",
-      companyName: "",
-      number: "",
-    });
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+  if (!isOpen) return null;
 
-    useEffect(() => {
-      if (editingUser) {
-        setFormData({
-          name: editingUser.name,
-          email: editingUser.email,
-          password: "", // Leave password blank for edits
-          companyName: editingUser.companyName || "",
-          number: editingUser.number || "",
-        });
-      } else {
-        setFormData({
-          name: "",
-          email: "",
-          password: "",
-          companyName: "",
-          number: "",
-        });
-      }
-      setError("");
-    }, [editingUser]);
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 backdrop-blur-sm">
+      <motion.div
+        initial={{ y: "100%" }}
+        animate={{ y: 0 }}
+        exit={{ y: "100%" }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="bg-white w-full max-w-lg rounded-t-[2.5rem] sm:rounded-[2.5rem] p-8 md:p-10 relative shadow-2xl max-h-[90vh] overflow-y-auto"
+      >
+        <div className="w-12 h-1.5 bg-gray-100 rounded-full mx-auto mb-6 sm:hidden" />
 
-    const handleChange = (e) => {
-      const { name, value } = e.target;
-      setFormData((prev) => ({ ...prev, [name]: value }));
-      setError(""); // Clear error when user makes changes
-    };
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-2xl font-bold tracking-tighter">
+            {editingUser ? "Modify Entity" : `Provision ${userType}`}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-2 bg-gray-50 rounded-full hover:bg-gray-100"
+          >
+            <X size={20} />
+          </button>
+        </div>
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      setLoading(true);
-      setError("");
-
-      try {
-        // Validate required fields
-        if (!formData.name || !formData.email) {
-          throw new Error("Name and email are required");
-        }
-
-        if (!editingUser && !formData.password) {
-          throw new Error("Password is required for new users");
-        }
-
-        await onCreate(formData);
-        onClose();
-        if (editingUser) {
-          toast.success("User Updated Successfully");
-        } else {
-          toast.success("User Created Successfully");
-        }
-      } catch (error) {
-        console.error("Error:", error);
-        setError(error.message);
-        toast.error(error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (!isOpen) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-background rounded-lg p-6 w-full max-w-md">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">
-              {editingUser ? "Edit User" : `Create New ${userType}`}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-5 w-5" />
-            </button>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+              Entity Name
+            </label>
+            <input
+              required
+              type="text"
+              name="name"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              className="w-full h-14 px-5 bg-gray-50 rounded-2xl font-bold text-gray-900 focus:bg-white focus:ring-4 focus:ring-gray-50 outline-none transition-all"
+            />
           </div>
-          {error && (
-            <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded">
-              {error}
-            </div>
-          )}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-input rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-input rounded-md"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Password{" "}
-                {!editingUser && <span className="text-red-500">*</span>}
-                {editingUser && (
-                  <span className="text-sm text-muted-foreground ml-1">
-                    (Leave blank to keep current)
-                  </span>
-                )}
-              </label>
-              <input
-                type="password"
-                name="password"
-                defaultValue=""
-                onChange={handleChange}
-                required={!editingUser}
-                minLength={editingUser ? 0 : 6}
-                className="w-full px-3 py-2 border border-input rounded-md"
-              />
-            </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+              Email Hash
+            </label>
+            <input
+              required
+              type="email"
+              name="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              className="w-full h-14 px-5 bg-gray-50 rounded-2xl font-bold text-gray-900 focus:bg-white focus:ring-4 focus:ring-gray-50 outline-none transition-all"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+              Security Key {editingUser && "(Leave blank to keep)"}
+            </label>
+            <input
+              required={!editingUser}
+              minLength={editingUser ? 0 : 6}
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={(e) =>
+                setFormData({ ...formData, password: e.target.value })
+              }
+              className="w-full h-14 px-5 bg-gray-50 rounded-2xl font-bold text-gray-900 focus:bg-white focus:ring-4 focus:ring-gray-50 outline-none transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
             {userType === "Vendor" && (
-              <div>
-                <label className="block text-sm font-medium mb-1">
-                  Company Name
+              <div className="space-y-2">
+                <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+                  Corporate Org
                 </label>
                 <input
                   type="text"
                   name="companyName"
                   value={formData.companyName}
-                  onChange={handleChange}
-                  className="w-full px-3 py-2 border border-input rounded-md"
+                  onChange={(e) =>
+                    setFormData({ ...formData, companyName: e.target.value })
+                  }
+                  className="w-full h-14 px-5 bg-gray-50 rounded-2xl font-bold text-gray-900 focus:bg-white focus:ring-4 focus:ring-gray-50 outline-none transition-all"
                 />
               </div>
             )}
-            <div>
-              <label className="block text-sm font-medium mb-1">
-                Phone Number
+            <div className="space-y-2 flex-1">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
+                Auth Phone
               </label>
               <input
                 type="tel"
                 name="number"
                 value={formData.number}
-                onChange={handleChange}
-                className="w-full px-3 py-2 border border-input rounded-md"
+                onChange={(e) =>
+                  setFormData({ ...formData, number: e.target.value })
+                }
+                className="w-full h-14 px-5 bg-gray-50 rounded-2xl font-bold text-gray-900 focus:bg-white focus:ring-4 focus:ring-gray-50 outline-none transition-all"
               />
             </div>
-            <div className="flex justify-end gap-2 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border border-input rounded-md hover:bg-secondary"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50"
-              >
-                {loading
-                  ? editingUser
-                    ? "Updating..."
-                    : "Creating..."
-                  : editingUser
-                  ? "Update"
-                  : "Create"}
-              </button>
-            </div>
-          </form>
+          </div>
+
+          <div className="flex gap-4 pt-6">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-4 bg-gray-50 text-gray-400 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-gray-100 transition-all"
+            >
+              Discard
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex-[2] py-4 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl shadow-black/20 hover:bg-gray-800 disabled:opacity-50 transition-all"
+            >
+              {loading ? "Processing..." : "Commit Entity"}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
+
+const DeleteConfirmModal = ({ isOpen, onClose, onConfirm, entityName }) => {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-white rounded-[2.5rem] p-10 w-full max-w-sm text-center shadow-2xl"
+      >
+        <div className="w-20 h-20 bg-rose-50 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+          <Trash2 size={32} />
         </div>
+        <h2 className="text-2xl font-black tracking-tight text-gray-900 mb-2">
+          Terminate Node?
+        </h2>
+        <p className="text-gray-500 text-sm mb-8 leading-relaxed font-medium">
+          You are about to permanently purge{" "}
+          <span className="text-black font-bold">"{entityName}"</span>. This
+          protocol cannot be reversed.
+        </p>
+        <div className="flex flex-col gap-3">
+          <button
+            onClick={onConfirm}
+            className="w-full py-4 bg-rose-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg shadow-rose-200 hover:bg-rose-600 transition-all"
+          >
+            Confirm Purge
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full py-4 bg-gray-50 text-gray-400 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] hover:bg-gray-100 transition-all"
+          >
+            Cancel Protocol
+          </button>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+// ==========================================
+// DASHBOARD & LIST VIEWS
+// ==========================================
+
+function UserList({ users, loading, error }) {
+  if (loading)
+    return (
+      <div className="h-[60vh] flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+        <div className="w-8 h-8 border-4 border-gray-100 border-t-black rounded-full animate-spin mr-3" />{" "}
+        Syncing Ledger...
       </div>
     );
-  };
-  const handleCreateClick = (userType) => {
-    setCreatingUserType(userType);
-    setIsCreateModalOpen(true);
-  };
-  const handleViewUser = (user) => {
-    setViewingUser(user);
-    setIsViewModalOpen(true);
-  };
-
-  const handleEditUser = (user) => {
-    setEditingUser(user);
-    setCreatingUserType(
-      user.role === "vendor"
-        ? "Vendor"
-        : user.role === "admin"
-        ? "Admin"
-        : "Customer"
+  if (error)
+    return (
+      <div className="text-red-500 font-bold p-8">
+        Protocol Interrupted: Cannot fetch ledger.
+      </div>
     );
-    setIsCreateModalOpen(true);
-  };
 
-  const handleDeleteUser = async (userId) => {
-    try {
-      await axios.delete(`/users/${userId}`);
-      setUsers(users.filter((user) => user._id !== userId));
-      toast("User Deleted Successfully", {
-        description: "Sunday, December 03, 2023 at 9:00 AM",
-        action: {
-          label: "Remove",
-        },
-      });
-    } catch (error) {
-      toast("Error Deleting User ", {
-        description: "Sunday, December 03, 2023 at 9:00 AM",
-        action: {
-          label: "Remove",
-        },
-      });
-    }
-  };
-  const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "vendors", label: "Vendors", icon: Users },
-    { id: "customers", label: "Customers", icon: Users },
-    { id: "admins", label: "Admins", icon: Users },
+  const totalRegularUsers = users.filter((u) => u.role === "user").length;
+  const totalVendors = users.filter((u) => u.role === "vendor").length;
+  const totalAdmins = users.filter((u) => u.role === "admin").length;
+  const approvedVendors = users.filter(
+    (u) => u.role === "vendor" && u.isApproved,
+  ).length;
+  const unapprovedVendors = totalVendors - approvedVendors;
+
+  const userDistributionData = [
+    { name: "Customers", value: totalRegularUsers, color: "#2563eb" },
+    { name: "Vendors", value: totalVendors, color: "#10b981" },
+    { name: "Admins", value: totalAdmins, color: "#000000" },
   ];
 
+  return (
+    <div className="space-y-10 pb-20">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase">
+            Overview
+          </h1>
+          <p className="text-gray-500 font-medium text-sm">
+            System-wide biometric and commercial metrics.
+          </p>
+        </div>
+        <div className="text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 shadow-sm px-4 py-2 rounded-full">
+          {format(new Date(), "MMMM dd, yyyy")}
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
+        <StatCard
+          title="Global Vendors"
+          value={totalVendors}
+          sub={`${approvedVendors} Verified / ${unapprovedVendors} Pending`}
+          icon={Users}
+          trend
+        />
+        <StatCard
+          title="Platform Customers"
+          value={totalRegularUsers}
+          sub="Wallet Holders"
+          icon={Activity}
+        />
+        <StatCard
+          title="Root Admins"
+          value={totalAdmins}
+          sub="Security Clearance"
+          icon={ShieldCheck}
+        />
+        <StatCard
+          title="Total Network"
+          value={users.length}
+          sub="Synchronized Nodes"
+          icon={TrendingUp}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm">
+          <h3 className="text-xs font-black uppercase tracking-widest mb-8 text-gray-400">
+            Node Distribution
+          </h3>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={userDistributionData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={80}
+                  paddingAngle={8}
+                  dataKey="value"
+                >
+                  {userDistributionData.map((entry, index) => (
+                    <Cell key={index} fill={entry.color} stroke="none" />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: "1rem",
+                    border: "none",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                  }}
+                />
+                <Legend iconType="circle" />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm">
+          <h3 className="text-xs font-black uppercase tracking-widest mb-8 text-gray-400">
+            Vendor Verification
+          </h3>
+          <div className="h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={[
+                  { name: "Approved", value: approvedVendors },
+                  { name: "Pending", value: unapprovedVendors },
+                ]}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  vertical={false}
+                  stroke="#f1f5f9"
+                />
+                <XAxis
+                  dataKey="name"
+                  axisLine={false}
+                  tickLine={false}
+                  fontSize={10}
+                  fontWeight="bold"
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  fontSize={10}
+                  fontWeight="bold"
+                />
+                <Tooltip
+                  cursor={{ fill: "#f8fafc" }}
+                  contentStyle={{
+                    borderRadius: "1rem",
+                    border: "none",
+                    boxShadow: "0 10px 25px rgba(0,0,0,0.1)",
+                  }}
+                />
+                <Bar dataKey="value" radius={[10, 10, 0, 0]} barSize={40}>
+                  <Cell fill="#10b981" />
+                  <Cell fill="#f59e0b" />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// MAIN COMPONENT EXPORT
+// ==========================================
+
+export default function AdminDashboard() {
+  const [currentPage, setCurrentPage] = useState("dashboard");
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Search & Filter State
+  const [searchTerm, setSearchTerm] = useState("");
+
+  // Modals State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [creatingUserType, setCreatingUserType] = useState(null);
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [viewingUser, setViewingUser] = useState(null);
+  const [editingUser, setEditingUser] = useState(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+
   useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = () => {
+    setLoading(true);
     axios
       .get("/users")
       .then((res) => {
@@ -643,728 +577,434 @@ const Admin_Dashboard = () => {
       })
       .catch((err) => {
         setError(err);
-        toast("Error Fetching Users", {
-          description: "Sunday, December 03, 2023 at 9:00 AM",
-          action: {
-            label: "Remove",
-          },
-        });
+        toast.error("Ledger Sync Failure");
         setLoading(false);
       });
-  }, []);
+  };
+
+  const createUser = async (userData) => {
+    try {
+      let role =
+        creatingUserType === "Vendor"
+          ? "vendor"
+          : creatingUserType === "Admin"
+            ? "admin"
+            : "user";
+
+      if (editingUser) {
+        if (!userData.name || !userData.email)
+          throw new Error("Name and email are required");
+        const updateData = { ...userData };
+        if (!updateData.password || updateData.password.trim() === "")
+          delete updateData.password;
+
+        const res = await axios.patch(`/users/${editingUser._id}`, updateData, {
+          withCredentials: true,
+        });
+        setUsers(
+          users.map((user) =>
+            user._id === editingUser._id ? res.data.user : user,
+          ),
+        );
+      } else {
+        if (!userData.name || !userData.email || !userData.password)
+          throw new Error("All fields required");
+        const res = await axios.post("/users", {
+          ...userData,
+          role,
+          isApproved: creatingUserType === "Vendor" ? false : true,
+        });
+        setUsers([...users, res.data]);
+      }
+    } catch (error) {
+      throw new Error(
+        error.response?.data?.message || "Failed to process entity",
+      );
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    try {
+      await axios.delete(`/users/${userToDelete._id}`);
+      setUsers(users.filter((user) => user._id !== userToDelete._id));
+      toast.success("Entity Purged Successfully");
+    } catch (error) {
+      toast.error("Error Purging Entity");
+    } finally {
+      setIsDeleteModalOpen(false);
+      setUserToDelete(null);
+    }
+  };
 
   const toggleApprovalStatus = async (vendorId, newStatus) => {
     try {
-      const response = await axios.patch(`/users/approve/${vendorId}`, {
+      await axios.patch(`/users/approve/${vendorId}`, {
         isApproved: newStatus,
       });
-
-      // Update the local state to reflect the change
       setUsers(
-        users.map((user) =>
-          user._id === vendorId ? { ...user, isApproved: newStatus } : user
-        )
+        users.map((u) =>
+          u._id === vendorId ? { ...u, isApproved: newStatus } : u,
+        ),
+      );
+      toast.success(newStatus ? "Entity Authorized" : "Entity Restricted");
+    } catch (err) {
+      toast.error("Approval Override Failed");
+    }
+  };
+
+  const navItems = [
+    { id: "dashboard", label: "Overview", icon: LayoutDashboard },
+    { id: "vendors", label: "Vendors", icon: Users },
+    { id: "customers", label: "Customers", icon: Users },
+    { id: "admins", label: "Admins", icon: ShieldCheck },
+  ];
+
+  // --- Dynamic Table View ---
+  const DataRegistry = ({ type, title }) => {
+    const roleMap = { vendors: "vendor", customers: "user", admins: "admin" };
+    const filtered = users
+      .filter((u) => u.role === roleMap[type])
+      .filter(
+        (u) =>
+          u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          u.email.toLowerCase().includes(searchTerm.toLowerCase()),
       );
 
-      toast("Approval Toggled", {
-        description: "Sunday, December 03, 2023 at 9:00 AM",
-        action: {
-          label: "Remove",
-        },
-      });
-    } catch (err) {
-      console.error("Error updating vendor status:", err);
-      toast("Error Approving User", {
-        description: "Sunday, December 03, 2023 at 9:00 AM",
-        action: {
-          label: "Remove",
-        },
-      });
-    }
-  };
-
-  const handlePageChange = (page) => {
-    setCurrentPage(page);
-    setActiveTab(getDefaultTabForPage(page));
-  };
-
-  const getDefaultTabForPage = (page) => {
-    switch (page) {
-      case "dashboard":
-        return "overview";
-      case "vendors":
-        return "allVendors";
-      case "customers":
-        return "allCustomers";
-      case "admins":
-        return "allAdmins";
-      default:
-        return "overview";
-    }
-  };
-
-  const renderContent = () => {
-    switch (currentPage) {
-      case "dashboard":
-        return (
+    return (
+      <div className="space-y-8 pb-20">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
-            <UserList users={users} loading={loading} error={error} />
+            <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase">
+              {title}
+            </h1>
+            <p className="text-gray-500 font-medium mt-1">
+              Registry of all authorized {type}.
+            </p>
           </div>
-        );
+          <button
+            onClick={() => {
+              setCreatingUserType(
+                type === "vendors"
+                  ? "Vendor"
+                  : type === "admins"
+                    ? "Admin"
+                    : "Customer",
+              );
+              setEditingUser(null);
+              setIsCreateModalOpen(true);
+            }}
+            className="w-full md:w-auto bg-black text-white px-8 py-3.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-gray-800 transition-all flex items-center justify-center gap-2"
+          >
+            <Plus size={14} /> Forge {type.slice(0, -1)}
+          </button>
+        </div>
 
-      case "vendors":
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold">Vendor Management</h1>
-              <button
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 "
-                onClick={() => handleCreateClick("Vendor")}
-              >
-                <Plus className="h-4 w-4 mr-2 inline-block" />
-                Add Vendor
-              </button>
-            </div>
-            <div className="border-b border-border">
-              <div className="flex space-x-1">
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === "allVendors"
-                      ? "border-b-2 border-primary font-medium"
-                      : "text-muted-foreground"
-                  }`}
-                  onClick={() => setActiveTab("allVendors")}
-                >
-                  All Vendors
-                </button>
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === "activeVendors"
-                      ? "border-b-2 border-primary font-medium"
-                      : "text-muted-foreground"
-                  }`}
-                  onClick={() => setActiveTab("activeVendors")}
-                >
-                  Approved Vendors
-                </button>
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === "inactiveVendors"
-                      ? "border-b-2 border-primary font-medium"
-                      : "text-muted-foreground"
-                  }`}
-                  onClick={() => setActiveTab("inactiveVendors")}
-                >
-                  Unapproved Vendors
-                </button>
-              </div>
-            </div>
-            {(activeTab === "allVendors" ||
-              activeTab === "activeVendors" ||
-              activeTab === "inactiveVendors") && (
-              <div className="space-y-4">
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                  <div className="relative w-full md:max-w-sm">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <input
-                      type="text"
-                      placeholder="Search vendors..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10 pr-4 py-2 w-full bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                    />
-                  </div>
+        <div className="relative w-full group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-black transition-colors" />
+          <input
+            placeholder={`Search ${type} by name or email...`}
+            className="pl-11 pr-4 py-3.5 w-full bg-white border border-gray-100 rounded-[1.2rem] focus:ring-4 focus:ring-gray-50 outline-none text-sm font-medium transition-all shadow-sm"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value)}
-                      className="px-3 py-2 bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                    >
-                      <option value="">All Status</option>
-                      <option value="approved">Approved</option>
-                      <option value="unapproved">Unapproved</option>
-                    </select>
-
-                    <button
-                      onClick={() => {
-                        setSearchTerm("");
-                        setFilterStatus("");
-                      }}
-                      className="px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 flex items-center gap-1"
-                    >
-                      <Filter className="h-4 w-4" />
-                      <span>Reset Filters</span>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="border border-border rounded-md overflow-hidden">
-                  <table className="min-w-full divide-y divide-border">
-                    <thead className="bg-muted">
-                      <tr>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+        <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-50">
+              <thead className="bg-gray-50/50">
+                <tr className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  <th className="px-8 py-5 text-left">Identity</th>
+                  <th className="px-8 py-5 text-left">Contact Matrix</th>
+                  {type === "vendors" && (
+                    <th className="px-8 py-5 text-left">Clearance</th>
+                  )}
+                  <th className="px-8 py-5 text-left hidden sm:table-cell">
+                    Genesis Date
+                  </th>
+                  <th className="px-8 py-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {filtered.map((user) => (
+                  <tr
+                    key={user._id}
+                    className="group hover:bg-gray-50/30 transition-all"
+                  >
+                    <td className="px-8 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 group-hover:bg-black group-hover:text-white transition-colors duration-500 shrink-0">
+                          {type === "admins" ? (
+                            <ShieldCheck size={18} />
+                          ) : (
+                            <Users size={18} />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-gray-900 truncate">
+                            {user.name}
+                          </p>
+                          {type === "vendors" && (
+                            <p className="text-[9px] font-mono text-gray-400 uppercase leading-none truncate">
+                              {user.companyName || "Independent"}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-8 py-4">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {user.email}
+                      </p>
+                      <p className="text-[10px] text-gray-400">
+                        {user.number || "No Phone"}
+                      </p>
+                    </td>
+                    {type === "vendors" && (
+                      <td className="px-8 py-4">
+                        <span
+                          className={cn(
+                            "text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full border",
+                            user.isApproved
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                              : "bg-amber-50 text-amber-600 border-amber-100",
+                          )}
                         >
-                          Vendor
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                          {user.isApproved ? "Verified" : "Pending"}
+                        </span>
+                      </td>
+                    )}
+                    <td className="px-8 py-4 text-[10px] font-bold text-gray-400 uppercase hidden sm:table-cell">
+                      {user.createdAt
+                        ? format(new Date(user.createdAt), "MMM dd, yyyy")
+                        : "N/A"}
+                    </td>
+                    <td className="px-8 py-4 text-right">
+                      <div className="flex justify-end gap-1 opacity-100 transition-opacity">
+                        {type === "vendors" && (
+                          <button
+                            onClick={() =>
+                              toggleApprovalStatus(user._id, !user.isApproved)
+                            }
+                            className="p-2.5 hover:bg-white rounded-xl shadow-none hover:shadow-sm border border-transparent hover:border-gray-100 text-gray-400 hover:text-black"
+                          >
+                            {user.isApproved ? (
+                              <X size={16} />
+                            ) : (
+                              <Check size={16} />
+                            )}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            setViewingUser(user);
+                            setIsViewModalOpen(true);
+                          }}
+                          className="p-2.5 hover:bg-white rounded-xl shadow-none hover:shadow-sm border border-transparent hover:border-gray-100 text-gray-400 hover:text-blue-500 transition-colors"
                         >
-                          Contact
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setEditingUser(user);
+                            setCreatingUserType(
+                              type === "vendors"
+                                ? "Vendor"
+                                : type === "admins"
+                                  ? "Admin"
+                                  : "Customer",
+                            );
+                            setIsCreateModalOpen(true);
+                          }}
+                          className="p-2.5 hover:bg-white rounded-xl shadow-none hover:shadow-sm border border-transparent hover:border-gray-100 text-gray-400 hover:text-emerald-500 transition-colors"
                         >
-                          Vouchers
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
+                          <Edit size={16} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setUserToDelete(user);
+                            setIsDeleteModalOpen(true);
+                          }}
+                          className="p-2.5 hover:bg-rose-50 rounded-xl text-gray-400 hover:text-rose-500 transition-colors"
                         >
-                          Status
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >
-                          Created At
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                        >
-                          Approve
-                        </th>
-                        <th
-                          scope="col"
-                          className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider "
-                        >
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-background divide-y divide-border">
-                      {users
-                        .filter((user) => user.role === "vendor")
-                        .filter((vendor) => {
-                          const matchesSearch =
-                            searchTerm === "" ||
-                            vendor.name
-                              .toLowerCase()
-                              .includes(searchTerm.toLowerCase()) ||
-                            (vendor.companyName &&
-                              vendor.companyName
-                                .toLowerCase()
-                                .includes(searchTerm.toLowerCase()));
-
-                          const matchesStatus =
-                            filterStatus === "" ||
-                            (filterStatus === "approved" &&
-                              vendor.isApproved) ||
-                            (filterStatus === "unapproved" &&
-                              !vendor.isApproved);
-
-                          const matchesTab =
-                            activeTab === "allVendors" ||
-                            (activeTab === "activeVendors" &&
-                              vendor.isApproved) ||
-                            (activeTab === "inactiveVendors" &&
-                              !vendor.isApproved);
-
-                          return matchesSearch && matchesStatus && matchesTab;
-                        })
-                        .map((vendor) => (
-                          <tr key={vendor._id} className="hover:bg-muted/50 ">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                  <Users className="h-5 w-5 text-primary" />
-                                </div>
-                                <div className="ml-4">
-                                  <div className="font-medium">
-                                    {vendor.companyName || "Individual Vendor"}
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {vendor.name}
-                                  </div>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm">{vendor.email}</div>
-                              <div className="text-sm text-muted-foreground">
-                                {vendor.number || "No phone"}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm">
-                                {vendor.vouchersCreated || 0} created
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`px-2 py-1 rounded-full text-xs ${
-                                  vendor.isApproved
-                                    ? "bg-green-100 text-green-800"
-                                    : "bg-red-100 text-red-800"
-                                }`}
-                              >
-                                {vendor.isApproved
-                                  ? "Approved"
-                                  : "Pending Approval"}
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                              {vendor.createdAt
-                                ? new Date(vendor.createdAt).toLocaleString()
-                                : "Never logged in"}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleApprovalStatus(
-                                    vendor._id,
-                                    !vendor.isApproved
-                                  );
-                                }}
-                                className="text-primary hover:text-primary/80 cursor-pointer"
-                              >
-                                {vendor.isApproved ? (
-                                  <X className="h-5 w-5 text-red-500" />
-                                ) : (
-                                  <Check className="h-5 w-5 text-green-500" />
-                                )}
-                              </button>
-                            </td>
-                            <td className="px-2 py-8 whitespace-nowrap flex justify-center gap-4 items-center text-right">
-                              <button
-                                onClick={() => handleViewUser(vendor)}
-                                className="text-blue-500 hover:text-blue-500/80"
-                                title="View"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleEditUser(vendor)}
-                                className="text-green-600 hover:text-green-800/80"
-                                title="Edit"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteUser(vendor._id)}
-                                className="text-red-500 hover:text-red-700"
-                                title="Delete"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                </div>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="py-20 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+                No {type} found in registry.
               </div>
             )}
           </div>
-        );
-      case "customers":
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold">Customer Management</h1>
-              <button
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
-                onClick={() => handleCreateClick("Customer")}
-              >
-                <Plus className="h-4 w-4 mr-2 inline-block" />
-                Add Customer
-              </button>
-            </div>
-            <div className="border-b border-border">
-              <div className="flex space-x-1">
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === "allCustomers"
-                      ? "border-b-2 border-primary font-medium"
-                      : "text-muted-foreground"
-                  }`}
-                  onClick={() => setActiveTab("allCustomers")}
-                >
-                  All Customers
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="relative w-full md:max-w-sm">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search customers..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setFilterStatus("");
-                    }}
-                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 flex items-center gap-1"
-                  >
-                    <Filter className="h-4 w-4" />
-                    <span>Reset Filters</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="border border-border rounded-md overflow-hidden">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Customer
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Contact
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Vouchers Used
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Created At
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {users
-                      .filter((user) => user.role === "user")
-                      .filter((customer) => {
-                        const matchesSearch =
-                          searchTerm === "" ||
-                          customer.name
-                            .toLowerCase()
-                            .includes(searchTerm.toLowerCase()) ||
-                          customer.email
-                            .toLowerCase()
-                            .includes(searchTerm.toLowerCase());
-
-                        return matchesSearch;
-                      })
-                      .map((customer) => (
-                        <tr key={customer._id} className="hover:bg-muted/50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Users className="h-5 w-5 text-primary" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="font-medium">
-                                  {customer.name}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">{customer.email}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {customer.number || "No phone"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">
-                              {customer.vouchersRedeemed || 0} redeemed
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            {customer.createdAt
-                              ? new Date(customer.createdAt).toLocaleString()
-                              : "Unknown"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleViewUser(customer)}
-                              className="text-blue-600 hover:text-blue-600/80"
-                              title="View"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEditUser(customer)}
-                              className="text-green-600 hover:text-green-800/80"
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(customer._id)}
-                              className="text-red-500 hover:text-red-700"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        );
-      case "admins":
-        return (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h1 className="text-3xl font-bold">Admin Management</h1>
-              <button
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
-                onClick={() => handleCreateClick("Admin")}
-              >
-                <Plus className="h-4 w-4 mr-2 inline-block" />
-                Add Admin
-              </button>
-            </div>
-
-            <div className="border-b border-border">
-              <div className="flex space-x-1">
-                <button
-                  className={`px-4 py-2 ${
-                    activeTab === "allAdmins"
-                      ? "border-b-2 border-primary font-medium"
-                      : "text-muted-foreground"
-                  }`}
-                  onClick={() => setActiveTab("allAdmins")}
-                >
-                  All Admins
-                </button>
-              </div>
-            </div>
-            <div className="space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="relative w-full md:max-w-sm">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="text"
-                    placeholder="Search admins..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 w-full bg-background border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => {
-                      setSearchTerm("");
-                      setFilterStatus("");
-                    }}
-                    className="px-3 py-2 bg-secondary text-secondary-foreground rounded-md hover:bg-secondary/80 flex items-center gap-1"
-                  >
-                    <Filter className="h-4 w-4" />
-                    <span>Reset Filters</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="border border-border rounded-md overflow-hidden">
-                <table className="min-w-full divide-y divide-border">
-                  <thead className="bg-muted">
-                    <tr>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Admin
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Contact
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Status
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Created At
-                      </th>
-                      <th
-                        scope="col"
-                        className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider"
-                      >
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-background divide-y divide-border">
-                    {users
-                      .filter((user) => user.role === "admin")
-                      .filter((admin) => {
-                        const matchesSearch =
-                          searchTerm === "" ||
-                          admin.name
-                            .toLowerCase()
-                            .includes(searchTerm.toLowerCase()) ||
-                          admin.email
-                            .toLowerCase()
-                            .includes(searchTerm.toLowerCase());
-
-                        return matchesSearch;
-                      })
-                      .map((admin) => (
-                        <tr key={admin._id} className="hover:bg-muted/50">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className="flex-shrink-0 h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                <Users className="h-5 w-5 text-primary" />
-                              </div>
-                              <div className="ml-4">
-                                <div className="font-medium">{admin.name}</div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm">{admin.email}</div>
-                            <div className="text-sm text-muted-foreground">
-                              {admin.number || "No phone"}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="px-2 py-1 rounded-full text-xs bg-green-100 text-green-800">
-                              Active
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                            {admin.createdAt
-                              ? new Date(admin.createdAt).toLocaleString()
-                              : "Unknown"}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium flex items-center justify-end gap-2">
-                            <button
-                              onClick={() => handleViewUser(admin)}
-                              className="text-blue-600 hover:text-blue-600/80"
-                              title="View"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleEditUser(admin)}
-                              className="text-green-600 hover:text-green-800/80"
-                              title="Edit"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteUser(admin._id)}
-                              className="text-red-500 hover:text-red-700"
-                              title="Delete"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        );
-      default:
-        return <div>Dashboard Content</div>;
-    }
+        </div>
+      </div>
+    );
   };
 
   return (
-    <div className="flex h-screen bg-background text-foreground">
-      <div className="w-64 border-r border-border flex-shrink-0">
-        <div className="h-full flex flex-col">
-          <div className="px-4 py-6 flex items-center justify-center">
-            <h1 className="text-lg font-semibold">GiftVault Admin</h1>
-          </div>
-          <nav className="flex-1 py-4">
-            <ul className="space-y-1">
-              {navItems.map((item) => (
-                <li key={item.id}>
-                  <button
-                    onClick={() => handlePageChange(item.id)}
-                    className={cn(
-                      "flex items-center gap-3 w-full px-4 py-2 text-sm font-medium transition-colors hover:bg-secondary hover:text-foreground",
-                      currentPage === item.id
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <item.icon className="h-4 w-4" />
-                    {item.label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
-          <div className="p-4 border-t">
-            <div className="mt-auto">
-              <LogoutButton />
+    <div className="flex h-screen bg-[#FBFBFB] text-[#1D1D1F] font-sans selection:bg-black selection:text-white overflow-hidden relative">
+      {/* --- Desktop Sidebar --- */}
+      <aside className="hidden lg:flex w-64 border-r border-gray-100 bg-white flex-col z-50 shrink-0">
+        <div className="p-8 mb-4">
+          <div className="flex items-center gap-3 group cursor-pointer">
+            <div className="bg-black p-2 rounded-xl shadow-lg group-hover:scale-105 transition-transform">
+              <ShieldCheck className="h-5 w-5 text-white" />
             </div>
+            <span className="text-lg font-black tracking-tighter uppercase">
+              AdminVault
+            </span>
           </div>
         </div>
-      </div>
-      <CreateUserModal
-        isOpen={isCreateModalOpen}
-        onClose={() => {
-          setIsCreateModalOpen(false);
-          setCreatingUserType(null);
-          setEditingUser(null); // Also reset editingUser when closing
-        }}
-        onCreate={createUser}
-        userType={creatingUserType}
-        editingUser={editingUser} // Pass the editingUser prop
-      />
-      <ViewUserModal
-        isOpen={isViewModalOpen}
-        onClose={() => {
-          setIsViewModalOpen(false);
-          setViewingUser(null);
-        }}
-        user={viewingUser}
-      />
-      <main className="flex-1 overflow-y-auto p-8">{renderContent()}</main>
+
+        <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setCurrentPage(item.id);
+                setSearchTerm("");
+              }}
+              className={cn(
+                "relative flex items-center gap-3 w-full px-4 py-3 text-[11px] font-bold uppercase tracking-[0.15em] transition-all rounded-2xl group",
+                currentPage === item.id
+                  ? "text-black"
+                  : "text-gray-400 hover:text-gray-900",
+              )}
+            >
+              {currentPage === item.id && (
+                <motion.div
+                  layoutId="admin-nav"
+                  className="absolute inset-0 bg-gray-50 rounded-2xl -z-10 border border-gray-100"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                />
+              )}
+              <item.icon size={18} /> {item.label}
+              {currentPage === item.id && (
+                <div className="ml-auto w-1 h-1 bg-black rounded-full" />
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <div className="p-6 mt-auto border-t border-gray-50">
+          <div className="bg-gray-50 rounded-3xl p-4 border border-gray-100 mb-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-1">
+              Session Active
+            </p>
+            <p className="text-xs font-bold text-gray-900 truncate uppercase tracking-tighter">
+              Root Admin
+            </p>
+          </div>
+          <LogoutButton />
+        </div>
+      </aside>
+
+      {/* --- Mobile Top Header --- */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b border-gray-100 z-50 flex items-center justify-between px-6 font-black uppercase tracking-tighter">
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={18} />
+          <span>AdminVault</span>
+        </div>
+      </header>
+
+      {/* --- Main Content Area --- */}
+      <main className="flex-1 overflow-y-auto relative scroll-smooth bg-[#FBFBFB] pt-20 lg:pt-0 pb-28 lg:pb-0">
+        <div className="absolute top-0 right-0 w-full lg:w-[600px] h-[400px] lg:h-[600px] bg-gray-100/30 blur-[80px] lg:blur-[120px] rounded-full pointer-events-none -z-10" />
+
+        <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12 relative z-10">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentPage}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+            >
+              {currentPage === "dashboard" && (
+                <UserList users={users} loading={loading} error={error} />
+              )}
+              {currentPage === "vendors" && (
+                <DataRegistry type="vendors" title="Vendor Management" />
+              )}
+              {currentPage === "customers" && (
+                <DataRegistry type="customers" title="Customer Directory" />
+              )}
+              {currentPage === "admins" && (
+                <DataRegistry type="admins" title="Admin Governance" />
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </div>
+      </main>
+
+      {/* --- Mobile Bottom Nav Bar --- */}
+      <nav className="lg:hidden fixed bottom-6 left-4 right-4 h-16 bg-white/90 backdrop-blur-2xl border border-gray-200/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] z-50 flex items-center justify-around px-2">
+        {navItems.map((item) => {
+          const isActive = currentPage === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => {
+                setCurrentPage(item.id);
+                setSearchTerm("");
+              }}
+              className="relative flex flex-col items-center justify-center w-12 h-12 transition-all"
+            >
+              <span
+                className={isActive ? "text-black scale-110" : "text-gray-400"}
+              >
+                {React.createElement(item.icon, { size: 20 })}
+              </span>
+              {isActive && (
+                <motion.div
+                  layoutId="mobile-dot"
+                  className="absolute -bottom-1 w-1 h-1 bg-black rounded-full"
+                />
+              )}
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* --- Modal Container System --- */}
+      <AnimatePresence>
+        {isViewModalOpen && (
+          <ViewUserModal
+            isOpen={isViewModalOpen}
+            onClose={() => setIsViewModalOpen(false)}
+            user={viewingUser}
+          />
+        )}
+        {isCreateModalOpen && (
+          <CreateUserModal
+            isOpen={isCreateModalOpen}
+            onClose={() => {
+              setIsCreateModalOpen(false);
+              setEditingUser(null);
+            }}
+            onCreate={createUser}
+            userType={creatingUserType}
+            editingUser={editingUser}
+          />
+        )}
+        {isDeleteModalOpen && (
+          <DeleteConfirmModal
+            isOpen={isDeleteModalOpen}
+            onClose={() => {
+              setIsDeleteModalOpen(false);
+              setUserToDelete(null);
+            }}
+            onConfirm={handleDeleteUser}
+            entityName={userToDelete?.name}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
-};
-
-export default Admin_Dashboard;
+}

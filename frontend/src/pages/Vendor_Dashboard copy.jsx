@@ -260,8 +260,8 @@ const Vendor_Dashboards = () => {
   const handleUpdateVoucherStatus = (id, newStatus) => {
     setVouchers(
       vouchers.map((voucher) =>
-        voucher.id === id ? { ...voucher, status: newStatus } : voucher
-      )
+        voucher.id === id ? { ...voucher, status: newStatus } : voucher,
+      ),
     );
     toast({
       title: "Status Updated",
@@ -322,13 +322,13 @@ const Vendor_Dashboards = () => {
   const filteredVouchers = vouchers.filter(
     (voucher) =>
       voucher.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      voucher.id.toLowerCase().includes(searchTerm.toLowerCase())
+      voucher.id.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   // Calculate analytics data
   const activeVouchers = vouchers.filter((v) => v.status === "active").length;
   const redeemedVouchers = vouchers.filter(
-    (v) => v.status === "redeemed"
+    (v) => v.status === "redeemed",
   ).length;
   const expiredVouchers = vouchers.filter((v) => v.status === "expired").length;
   const redemptionRate =
@@ -346,17 +346,17 @@ const Vendor_Dashboards = () => {
 
   // Count unique campaigns
   const campaigns = [...new Set(vouchers.map((v) => v.campaign))].filter(
-    Boolean
+    Boolean,
   ).length;
 
   // Total distributed and redeemed
   const totalDistributed = distributions.reduce(
     (sum, dist) => sum + dist.recipients,
-    0
+    0,
   );
   const totalRedeemed = distributions.reduce(
     (sum, dist) => sum + dist.redeemed,
-    0
+    0,
   );
 
   // Navigation items
@@ -1055,7 +1055,7 @@ const Vendor_Dashboards = () => {
                                 voucher.id,
                                 voucher.status === "active"
                                   ? "expired"
-                                  : "active"
+                                  : "active",
                               );
                             }}
                           >
@@ -1103,7 +1103,7 @@ const Vendor_Dashboards = () => {
                       onClick={() => {
                         handleUpdateVoucherStatus(
                           voucher.id,
-                          voucher.status === "active" ? "expired" : "active"
+                          voucher.status === "active" ? "expired" : "active",
                         );
                       }}
                     >
@@ -1228,7 +1228,7 @@ const Vendor_Dashboards = () => {
                               setSelectedUsers([...selectedUsers, user.id]);
                             } else {
                               setSelectedUsers(
-                                selectedUsers.filter((id) => id !== user.id)
+                                selectedUsers.filter((id) => id !== user.id),
                               );
                             }
                           }}
@@ -1667,10 +1667,10 @@ const Vendor_Dashboards = () => {
                         width: `${
                           voucher.sentRedeemed.split("/")[1] > 0
                             ? (Number.parseInt(
-                                voucher.sentRedeemed.split("/")[1]
+                                voucher.sentRedeemed.split("/")[1],
                               ) /
                                 Number.parseInt(
-                                  voucher.sentRedeemed.split("/")[0]
+                                  voucher.sentRedeemed.split("/")[0],
                                 )) *
                               100
                             : 0
@@ -2046,7 +2046,7 @@ const Vendor_Dashboards = () => {
                     "flex items-center gap-3 w-full px-4 py-2 text-sm",
                     currentPage === item.id
                       ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                      : "text-muted-foreground hover:text-foreground hover:bg-accent",
                   )}
                 >
                   {item.icon}

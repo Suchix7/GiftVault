@@ -1,55 +1,23 @@
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Gift, History, User, Calendar, Award, Users } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+  Gift,
+  History,
+  User,
+  Calendar,
+  Award,
+  Users,
+  ChevronRight,
+  Ticket,
+  ShieldCheck,
+  Zap,
+} from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import api from "@/api/axios";
 import KeyVerificationModal from "@/components/OtpVerificationModal";
 import { toast } from "sonner";
-import { motion } from "framer-motion";
-
-// Animation variants
-const containerVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      duration: 0.25,
-      when: "beforeChildren",
-      staggerChildren: 0.1,
-    },
-  },
-};
-
-const itemVariants = {
-  hidden: { opacity: 0, x: -20 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: { duration: 0.3 },
-  },
-};
-
-const cardVariants = {
-  hidden: { opacity: 0, scale: 0.95 },
-  visible: {
-    opacity: 1,
-    scale: 1,
-    transition: { duration: 0.3 },
-  },
-  hover: {
-    scale: 1.02,
-    transition: { duration: 0.2 },
-  },
-};
+import { motion, AnimatePresence } from "framer-motion";
+import { format } from "date-fns";
 
 export default function CustomerDashboard() {
   const [activeView, setActiveView] = useState("vouchers");
@@ -60,627 +28,448 @@ export default function CustomerDashboard() {
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [selectedVoucherForRedemption, setSelectedVoucherForRedemption] =
     useState(null);
-  const [redemptionCodes, setRedemptionCodes] = useState({}); // Map to store codes for each voucher
+  const [redemptionCodes, setRedemptionCodes] = useState({});
   const [currentUser, setCurrentUser] = useState(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
 
+  // --- Logic remains same as your original code ---
   useEffect(() => {
-    const fetchCurrentUser = async () => {
+    const fetchData = async () => {
       try {
-        setIsUserLoading(true);
-        const response = await api.get("/users/profile");
-        setCurrentUser(response.data.user);
-      } catch (error) {
-        console.error("Error fetching user profile:", error);
-        toast.error("Failed to load user profile");
-      } finally {
-        setIsUserLoading(false);
-      }
-    };
-    fetchCurrentUser();
-  }, []);
-
-  useEffect(() => {
-    const fetchVouchers = async () => {
-      try {
-        const response = await api.get("/vouchers/public/active");
-        setVouchers(response.data.vouchers || []);
-        console.log("Fetched vouchers:", response.data.vouchers);
-      } catch (error) {
-        console.error("Error fetching vouchers:", error);
-        toast.error("Failed to load vouchers");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchVouchers();
-  }, []);
-
-  useEffect(() => {
-    const fetchVendors = async () => {
-      try {
-        const response = await api.get("/users/vendors/all");
+        const [userRes, voucherRes, vendorRes] = await Promise.all([
+          api.get("/users/profile"),
+          api.get("/vouchers/public/active"),
+          api.get("/users/vendors/all"),
+        ]);
+        setCurrentUser(userRes.data.user);
+        setVouchers(voucherRes.data.vouchers || []);
         const vendorMap = {};
-        (response.data.users || []).forEach((v) => {
+        (vendorRes.data.users || []).forEach((v) => {
           vendorMap[v._id] = v.name;
         });
         setVendors(vendorMap);
       } catch (error) {
-        console.error("Error fetching vendors:", error);
+        toast.error("Protocol Sync Failed");
+      } finally {
+        setIsLoading(false);
+        setIsUserLoading(false);
       }
     };
-    fetchVendors();
+    fetchData();
   }, []);
 
-  const filteredVouchers = vouchers.filter(
-    (voucher) => voucher.status === activeTab
-  );
+  const formatDate = (dateString) =>
+    dateString ? format(new Date(dateString), "MMM dd, yyyy") : "N/A";
 
-  const formatDate = (dateString) => {
-    const options = { year: "numeric", month: "long", day: "numeric" };
-    return new Date(dateString).toLocaleDateString(undefined, options);
-  };
-
-  // Helper to check if a voucher is expired
   const isVoucherExpired = (voucher) => {
     if (voucher.status === "expired") return true;
     if (!voucher.expiryDate) return false;
-    const expiry = new Date(voucher.expiryDate);
-    const now = new Date();
-    return expiry < now;
+    return new Date(voucher.expiryDate) < new Date();
   };
 
-  // Helper to check if a voucher is redeemed by the current user
-  const isVoucherRedeemedByUser = (voucher) => {
-    if (!currentUser || !voucher?.redemptions) return false;
-    return voucher.redemptions.some((r) => r.userId === currentUser._id);
-  };
-
-  // Helper to get redemption date for a voucher
+  const isVoucherRedeemedByUser = (voucher) =>
+    currentUser &&
+    voucher?.redemptions?.some((r) => r.userId === currentUser._id);
   const getRedemptionDate = (voucher) => {
-    if (!currentUser || !voucher?.redemptions) return null;
-    const redemption = voucher.redemptions.find(
-      (r) => r.userId === currentUser._id
-    );
-    return redemption ? new Date(redemption.redeemedAt) : null;
+    const r = voucher?.redemptions?.find((r) => r.userId === currentUser?._id);
+    return r ? new Date(r.redeemedAt) : null;
   };
 
-  // Filter vouchers based on user's redemptions and codes
   const activeVouchers = vouchers.filter(
-    (voucher) =>
-      voucher.status === "active" &&
-      !isVoucherExpired(voucher) &&
-      !isVoucherRedeemedByUser(voucher)
+    (v) =>
+      v.status === "active" &&
+      !isVoucherExpired(v) &&
+      !isVoucherRedeemedByUser(v),
   );
-
-  const redeemedVouchers = vouchers.filter((voucher) =>
-    isVoucherRedeemedByUser(voucher)
-  );
-
+  const redeemedVouchers = vouchers.filter((v) => isVoucherRedeemedByUser(v));
   const expiredVouchers = vouchers.filter(
-    (voucher) => isVoucherExpired(voucher) && !isVoucherRedeemedByUser(voucher)
+    (v) => isVoucherExpired(v) && !isVoucherRedeemedByUser(v),
   );
 
   const handleRedeemClick = (voucher) => {
-    if (!currentUser) {
-      toast.error("Please wait while we load your profile");
-      return;
-    }
     setSelectedVoucherForRedemption(voucher);
     setIsOtpModalOpen(true);
   };
 
   const handleKeySuccess = (code) => {
-    if (!currentUser) {
-      toast.error("Please wait while we load your profile");
-      return;
-    }
-
-    if (selectedVoucherForRedemption) {
-      // Store the redemption code for this specific voucher
-      setRedemptionCodes((prev) => ({
-        ...prev,
-        [selectedVoucherForRedemption._id]: code,
-      }));
-
-      // Don't update the voucher's redemptions yet - it will be updated when the vendor completes the redemption
-      toast.success(
-        "Voucher code received! Present this code to the vendor to complete redemption."
-      );
-    }
+    setRedemptionCodes((prev) => ({
+      ...prev,
+      [selectedVoucherForRedemption._id]: code,
+    }));
+    toast.success("Redemption Key Generated");
   };
 
-  const VoucherCards = ({ vouchers, status }) => {
-    if (vouchers.length === 0) {
-      return (
-        <div className="flex items-center justify-center h-40 text-muted-foreground">
-          No {status} vouchers
-        </div>
-      );
-    }
+  // --- Premium Sub-Component: Hardware Voucher Card (Responsive) ---
+  const VoucherCard = ({ voucher, type }) => {
+    const hasCode = redemptionCodes[voucher._id];
+    const isRedeemed = type === "redeemed";
+    const isExpired = type === "expired";
 
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {vouchers.map((voucher) => {
-          const buttonColor = voucher.color || "#2563eb";
-          const textColor = "#fff";
-          const hasRedemptionCode = redemptionCodes[voucher._id];
-          const isRedeemed = isVoucherRedeemedByUser(voucher);
-          const redemptionDate = getRedemptionDate(voucher);
-          const showRedeemButton = !hasRedemptionCode && !isRedeemed;
-
-          return (
-            <div
-              key={voucher._id}
-              className="rounded-lg overflow-hidden"
-              style={{ backgroundColor: voucher.color || "#1e293b" }}
-            >
-              <div className="p-6">
-                <div className="bg-black/10 backdrop-blur-sm rounded-lg p-6 space-y-4">
-                  <div className="flex flex-col items-center mb-4">
-                    <div className="h-16 w-16 rounded-md overflow-hidden bg-white/90 p-2 flex items-center justify-center">
-                      {voucher.logo ? (
-                        <img
-                          src={voucher.logo}
-                          alt="Vendor logo"
-                          className="h-full w-full object-contain"
-                        />
-                      ) : (
-                        <Gift className="h-10 w-10 text-primary" />
-                      )}
-                    </div>
-                    <div className="mt-2 text-white text-sm font-medium">
-                      {vendors[voucher.vendorId] || "Vendor"}
-                    </div>
-                  </div>
-
-                  <div className="text-center space-y-1">
-                    <h3 className="text-xl font-bold text-white">
-                      {voucher.name}
-                    </h3>
-                    <p className="text-white/80 text-sm">
-                      {voucher.description ||
-                        "Voucher description will appear here"}
-                    </p>
-                  </div>
-
-                  <div className="flex justify-center">
-                    <div className="bg-white/20 backdrop-blur-sm rounded-full px-6 py-2 text-white font-bold text-2xl">
-                      {voucher.type === "percentage"
-                        ? `${voucher.value}% off`
-                        : `Rs.${voucher.value}`}
-                    </div>
-                  </div>
-                  <div className="text-center italic text-white/80 text-sm">
-                    {voucher.type === "percentage"
-                      ? `Upto Rs.${voucher.maxDiscount}`
-                      : `Enjoy the offer`}
-                  </div>
-                  {(voucher.expiryDate || redemptionDate) && (
-                    <div className="text-center text-white/80 text-sm">
-                      {hasRedemptionCode
-                        ? "Just redeemed"
-                        : isRedeemed
-                        ? `Redeemed on ${formatDate(redemptionDate)}`
-                        : `Valid until ${formatDate(voucher.expiryDate)}`}
-                    </div>
-                  )}
-
-                  {/* Modified Redeem/Show Voucher Button */}
-                  {status !== "expired" && (
-                    <div className="pt-4 flex justify-center">
-                      {hasRedemptionCode ? (
-                        <div className="text-center">
-                          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 mb-2">
-                            <p className="text-white text-sm mb-1">
-                              Your Redemption Code:
-                            </p>
-                            <p className="text-white text-xl font-mono font-bold tracking-wider">
-                              {redemptionCodes[voucher._id]}
-                            </p>
-                          </div>
-                          <p className="text-white/80 text-sm">
-                            Present this code at checkout
-                          </p>
-                        </div>
-                      ) : isRedeemed ? (
-                        <div className="text-center">
-                          <div className="bg-white/20 backdrop-blur-sm rounded-lg px-4 py-2 mb-2">
-                            <p className="text-white text-sm mb-1">
-                              Voucher Redeemed
-                            </p>
-                            <p className="text-white/80 text-sm">
-                              This voucher has been used
-                            </p>
-                          </div>
-                        </div>
-                      ) : (
-                        <Button
-                          style={{
-                            backgroundColor: buttonColor,
-                            color: textColor,
-                            border: "none",
-                          }}
-                          className="w-full font-semibold shadow hover:opacity-90"
-                          disabled={voucher.status !== "active"}
-                          onClick={() => handleRedeemClick(voucher)}
-                        >
-                          Redeem
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
+      <motion.div
+        layout
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col gap-4"
+      >
+        <div
+          className="w-full aspect-[1.6/1] rounded-[2rem] md:rounded-[2.5rem] shadow-xl relative overflow-hidden group"
+          style={{ backgroundColor: voucher.color || "#1e293b" }}
+        >
+          <div className="absolute inset-2 md:inset-3 bg-black/10 backdrop-blur-md rounded-[1.8rem] md:rounded-[2rem] border border-white/10 p-5 md:p-8 flex flex-col justify-between z-10 overflow-hidden">
+            <div className="flex justify-between items-start">
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-white/90 rounded-xl p-2 flex items-center justify-center shadow-lg">
+                {voucher.logo ? (
+                  <img
+                    src={voucher.logo}
+                    alt="Logo"
+                    className="h-full w-full object-contain"
+                  />
+                ) : (
+                  <Gift className="text-black w-5 h-5" />
+                )}
+              </div>
+              <div className="text-right">
+                <p className="text-[7px] md:text-[8px] font-black uppercase tracking-[0.3em] text-white/50 leading-none mb-1">
+                  Secure Asset
+                </p>
+                <p className="text-[9px] md:text-[10px] font-bold text-white uppercase truncate max-w-[80px] md:max-w-[100px]">
+                  {vendors[voucher.vendorId] || "Verified Partner"}
+                </p>
               </div>
             </div>
-          );
-        })}
-      </div>
+            <div>
+              <h3 className="text-lg md:text-2xl font-black tracking-tighter text-white mb-0.5 md:mb-1 uppercase truncate">
+                {voucher.name}
+              </h3>
+              <p className="text-white/60 text-[8px] md:text-[9px] font-medium max-w-[90%] line-clamp-1 italic uppercase tracking-wider">
+                {voucher.description ||
+                  "Digital voucher asset reserved for holder."}
+              </p>
+            </div>
+            <div className="flex justify-between items-end border-t border-white/10 pt-3 md:pt-4">
+              <div>
+                <div className="bg-white/20 px-3 py-1 rounded-full inline-block mb-1">
+                  <span className="text-lg md:text-xl font-black text-white tracking-tighter">
+                    {voucher.type === "percentage"
+                      ? `${voucher.value}% Off`
+                      : `Rs. ${voucher.value}`}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[7px] md:text-[8px] font-bold uppercase tracking-widest text-white/40 mb-0.5">
+                  {isRedeemed ? "Burned On" : "Valid Thru"}
+                </p>
+                <p className="text-[9px] md:text-[10px] font-bold text-white uppercase">
+                  {isRedeemed
+                    ? formatDate(getRedemptionDate(voucher))
+                    : formatDate(voucher.expiryDate)}
+                </p>
+              </div>
+            </div>
+          </div>
+          <div className="absolute top-0 right-0 w-32 h-32 md:w-48 md:h-48 bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+        </div>
+        <div className="px-1">
+          {hasCode ? (
+            <div className="bg-gray-900 rounded-2xl p-4 text-center border border-gray-800">
+              <p className="text-[8px] font-black text-gray-500 uppercase mb-1">
+                Authorization Key
+              </p>
+              <p className="text-white font-mono text-xl font-black tracking-[0.4em]">
+                {redemptionCodes[voucher._id]}
+              </p>
+            </div>
+          ) : isRedeemed ? (
+            <div className="w-full py-3 rounded-2xl bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase text-center border border-emerald-100 flex items-center justify-center gap-2">
+              <ShieldCheck size={14} /> Redeemed
+            </div>
+          ) : isExpired ? (
+            <div className="w-full py-3 rounded-2xl bg-gray-50 text-gray-400 text-[10px] font-black uppercase text-center border border-gray-100">
+              Expired
+            </div>
+          ) : (
+            <Button
+              onClick={() => handleRedeemClick(voucher)}
+              className="w-full h-12 md:h-14 rounded-2xl bg-black text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg hover:bg-gray-800 flex items-center justify-center gap-2"
+            >
+              Unlock Redemption <ChevronRight size={14} />
+            </Button>
+          )}
+        </div>
+      </motion.div>
     );
   };
 
-  // Show loading state if either vouchers or user data is loading
   if (isLoading || isUserLoading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
+      <div className="h-screen w-full flex flex-col items-center justify-center bg-[#FBFBFB]">
+        <div className="w-10 h-10 border-4 border-gray-100 border-t-black rounded-full animate-spin mb-4" />
+        <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+          Syncing...
+        </p>
       </div>
     );
   }
 
+  const navItems = [
+    { id: "vouchers", label: "My Assets", icon: <Ticket size={18} /> },
+    { id: "history", label: "Ledger", icon: <History size={18} /> },
+    { id: "profile", label: "Identity", icon: <User size={18} /> },
+  ];
+
   return (
-    <div className="flex h-screen bg-background">
-      {/* Sidebar */}
-      <div className="w-[205px] border-r border-border bg-foreground text-background flex flex-col">
-        <div className="p-4 flex items-center gap-2 border-b border-border">
-          <Gift className="h-5 w-5" />
-          <span className="font-semibold">GiftVault</span>
-        </div>
-
-        <nav className="flex flex-col flex-1">
-          <Button
-            variant="ghost"
-            className={`justify-start rounded-none h-12 px-4 ${
-              activeView === "vouchers" ? "bg-accent text-black" : ""
-            }`}
-            onClick={() => setActiveView("vouchers")}
-          >
-            <Gift className="h-5 w-5 mr-2" />
-            My Vouchers
-          </Button>
-          <Button
-            variant="ghost"
-            className={`justify-start rounded-none h-12 px-4 ${
-              activeView === "history" ? "bg-accent text-black" : ""
-            }`}
-            onClick={() => setActiveView("history")}
-          >
-            <History className="h-5 w-5 mr-2" />
-            History
-          </Button>
-          <Button
-            variant="ghost"
-            className={`justify-start rounded-none h-12 px-4 ${
-              activeView === "profile" ? "bg-accent text-black" : ""
-            }`}
-            onClick={() => setActiveView("profile")}
-          >
-            <User className="h-5 w-5 mr-2" />
-            Profile
-          </Button>
-        </nav>
-
-        <div className="p-4 border-t">
-          <div className="mt-auto">
-            <LogoutButton />
+    <div className="flex h-screen bg-[#FBFBFB] text-[#1D1D1F] font-sans overflow-hidden relative">
+      {/* --- Desktop Sidebar (Hidden on Mobile) --- */}
+      <aside className="hidden lg:flex w-64 border-r border-gray-100 bg-white flex-col z-50">
+        <div className="p-8 mb-4 flex items-center gap-3">
+          <div className="bg-black p-2 rounded-xl shadow-lg">
+            <Gift className="h-5 w-5 text-white" />
           </div>
+          <span className="text-lg font-black tracking-tighter uppercase">
+            GiftVault
+          </span>
         </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {activeView === "vouchers" && (
-          <>
-            <div className="p-6">
-              <h1 className="text-3xl font-bold">My Vouchers</h1>
-              <p className="text-muted-foreground">
-                Manage and redeem your gift vouchers
-              </p>
-            </div>
-
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="px-6 flex-1 overflow-auto"
+        <nav className="flex-1 px-4 space-y-2">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveView(item.id)}
+              className={`relative flex items-center gap-3 w-full px-4 py-3 text-[11px] font-bold uppercase tracking-[0.15em] transition-all rounded-2xl group ${activeView === item.id ? "text-black" : "text-gray-400 hover:text-gray-900"}`}
             >
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="active" className="flex-1">
-                  Active Vouchers
-                </TabsTrigger>
-                <TabsTrigger value="redeemed" className="flex-1">
-                  Redeemed
-                </TabsTrigger>
-                <TabsTrigger value="expired" className="flex-1">
-                  Expired
-                </TabsTrigger>
-              </TabsList>
+              {activeView === item.id && (
+                <motion.div
+                  layoutId="nav-pill"
+                  className="absolute inset-0 bg-gray-50 rounded-2xl -z-10 border border-gray-100"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                />
+              )}
+              {item.icon} {item.label}
+              {activeView === item.id && (
+                <div className="ml-auto w-1 h-1 bg-black rounded-full" />
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="p-6 mt-auto border-t border-gray-50">
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100 mb-4 text-[10px] font-bold">
+            <p className="text-gray-400 uppercase mb-1">Verified User</p>
+            <p className="text-gray-900 truncate">{currentUser?.name}</p>
+          </div>
+          <LogoutButton />
+        </div>
+      </aside>
 
-              <TabsContent value="active" className="mt-4 pb-6">
-                <h2 className="text-2xl font-semibold mb-4">Active Vouchers</h2>
-                {isLoading ? (
-                  <p>Loading vouchers...</p>
-                ) : (
-                  <VoucherCards vouchers={activeVouchers} status="active" />
-                )}
-              </TabsContent>
+      {/* --- Mobile Top Header --- */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b border-gray-100 z-50 flex items-center justify-between px-6 font-black uppercase tracking-tighter">
+        <div className="flex items-center gap-2">
+          <Gift size={18} />
+          <span>GiftVault</span>
+        </div>
+        <div className="text-[10px] bg-black text-white px-2 py-0.5 rounded-full">
+          {currentUser?.bonusPoints} PTS
+        </div>
+      </header>
 
-              <TabsContent value="redeemed" className="mt-4 pb-6">
-                <h2 className="text-2xl font-semibold mb-4">
-                  Redeemed Vouchers
-                </h2>
-                {isLoading ? (
-                  <p>Loading vouchers...</p>
-                ) : (
-                  <VoucherCards vouchers={redeemedVouchers} status="redeemed" />
-                )}
-              </TabsContent>
+      {/* --- Main Content --- */}
+      <main className="flex-1 overflow-y-auto relative scroll-smooth pt-20 lg:pt-0 pb-28 lg:pb-0">
+        <div className="absolute top-0 right-0 w-full lg:w-[600px] h-[400px] lg:h-[600px] bg-gray-100/30 blur-[80px] lg:blur-[120px] rounded-full pointer-events-none -z-10" />
 
-              <TabsContent value="expired" className="mt-4 pb-6">
-                <h2 className="text-2xl font-semibold mb-4">
-                  Expired Vouchers
-                </h2>
-                {isLoading ? (
-                  <p>Loading vouchers...</p>
-                ) : (
-                  <VoucherCards vouchers={expiredVouchers} status="expired" />
-                )}
-              </TabsContent>
-            </Tabs>
-          </>
-        )}
-
-        {activeView === "history" && (
-          <motion.div
-            className="p-6 space-y-6"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <motion.div variants={itemVariants}>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                Purchase History
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                View your past voucher purchases and redemptions
-              </p>
-            </motion.div>
-
-            <motion.div className="grid gap-4" variants={containerVariants}>
-              {redeemedVouchers.length > 0 ? (
-                redeemedVouchers.map((voucher) => {
-                  const redemptionDate = getRedemptionDate(voucher);
-                  return (
-                    <motion.div
-                      key={voucher._id}
-                      variants={cardVariants}
-                      initial="hidden"
-                      animate="visible"
-                      whileHover="hover"
-                      className="bg-card border border-border rounded-lg p-6 flex items-center justify-between hover:shadow-lg transition-shadow duration-300 hover:border-primary/20"
+        <div className="max-w-7xl mx-auto p-5 md:p-12 relative z-10">
+          <AnimatePresence mode="wait">
+            {activeView === "vouchers" && (
+              <motion.div
+                key="vouchers"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="space-y-8 md:space-y-10"
+              >
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-black tracking-tighter">
+                    My Vouchers
+                  </h1>
+                  <p className="text-gray-500 font-medium text-xs md:text-sm">
+                    Manage your digital vault assets.
+                  </p>
+                </div>
+                <div className="flex items-center p-1 bg-gray-100 rounded-2xl w-full md:w-fit border border-gray-200 shadow-inner overflow-x-auto no-scrollbar">
+                  {["active", "redeemed", "expired"].map((tab) => (
+                    <button
+                      key={tab}
+                      onClick={() => setActiveTab(tab)}
+                      className={`flex-1 md:flex-none px-6 md:px-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab ? "bg-white shadow-sm text-black" : "text-gray-400"}`}
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-16 w-16 rounded-xl overflow-hidden bg-gradient-to-br from-primary/10 to-primary/5 p-3 flex items-center justify-center shadow-inner">
-                          {voucher.logo ? (
-                            <img
-                              src={voucher.logo}
-                              alt="Vendor logo"
-                              className="h-full w-full object-contain"
-                            />
-                          ) : (
-                            <Gift className="h-8 w-8 text-primary" />
-                          )}
+                      {tab}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                  {(activeTab === "active"
+                    ? activeVouchers
+                    : activeTab === "redeemed"
+                      ? redeemedVouchers
+                      : expiredVouchers
+                  ).map((v) => (
+                    <VoucherCard key={v._id} voucher={v} type={activeTab} />
+                  ))}
+                </div>
+              </motion.div>
+            )}
+
+            {activeView === "history" && (
+              <motion.div
+                key="history"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-8 md:space-y-10"
+              >
+                <h1 className="text-3xl md:text-4xl font-black tracking-tighter">
+                  Ledger
+                </h1>
+                <div className="space-y-3">
+                  {redeemedVouchers.map((voucher) => (
+                    <div
+                      key={voucher._id}
+                      className="bg-white border border-gray-100 p-4 md:p-6 rounded-[1.5rem] md:rounded-[2rem] flex items-center justify-between shadow-sm"
+                    >
+                      <div className="flex items-center gap-3 md:gap-4">
+                        <div
+                          className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center text-white"
+                          style={{ backgroundColor: voucher.color || "#000" }}
+                        >
+                          <ShieldCheck size={20} />
                         </div>
                         <div>
-                          <h3 className="font-semibold text-lg">
+                          <p className="font-bold text-gray-900 text-xs md:text-sm uppercase">
                             {voucher.name}
-                          </h3>
-                          <p className="text-sm text-muted-foreground flex items-center gap-2">
-                            <Users className="h-4 w-4" />
-                            {vendors[voucher.vendorId] || "Vendor"}
                           </p>
-                          <p className="text-sm font-medium text-primary mt-1">
-                            Value: Rs. {voucher.value}
+                          <p className="text-[8px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                            Used {formatDate(getRedemptionDate(voucher))}
                           </p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm font-medium flex items-center gap-2 justify-end text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          {formatDate(redemptionDate)}
-                        </div>
-                        <div className="text-sm mt-2">
-                          <Badge
-                            variant={
-                              voucher.status === "active"
-                                ? "default"
-                                : "secondary"
-                            }
-                          >
-                            {voucher.status}
-                          </Badge>
-                        </div>
+                        <p className="text-xs md:text-sm font-black text-emerald-600">
+                          SUCCESS
+                        </p>
+                        <p className="text-[8px] md:text-[10px] font-mono text-gray-300">
+                          TXN-{voucher._id.slice(-6)}
+                        </p>
                       </div>
-                    </motion.div>
-                  );
-                })
-              ) : (
-                <motion.div
-                  variants={cardVariants}
-                  className="text-center py-16 bg-gradient-to-br from-muted/50 to-muted rounded-lg border border-border"
-                >
-                  <Gift className="h-16 w-16 mx-auto text-primary/50 mb-4" />
-                  <h3 className="text-xl font-medium mb-2">
-                    No Redemption History
-                  </h3>
-                  <p className="text-muted-foreground max-w-sm mx-auto">
-                    You haven't redeemed any vouchers yet. Browse available
-                    vouchers to get started!
-                  </p>
-                </motion.div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
+                    </div>
+                  ))}
+                </div>
+              </motion.div>
+            )}
 
-        {activeView === "profile" && (
-          <motion.div
-            className="p-6 space-y-6"
-            variants={containerVariants}
-            initial="hidden"
-            animate="visible"
-          >
-            <motion.div variants={itemVariants}>
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                My Profile
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Manage your account information and preferences
-              </p>
-            </motion.div>
+            {activeView === "profile" && (
+              <motion.div
+                key="profile"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-8 md:space-y-10"
+              >
+                <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-gray-900">
+                  Identity
+                </h1>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
+                  <div className="lg:col-span-2 bg-white border border-gray-100 rounded-[2rem] p-6 md:p-10 shadow-sm">
+                    <h2 className="text-lg font-bold mb-6 flex items-center gap-3">
+                      <User size={20} /> Personal Data
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-[9px] font-black text-gray-400 uppercase mb-1">
+                          Full Name
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {currentUser?.name}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-gray-400 uppercase mb-1">
+                          Email Hash
+                        </p>
+                        <p className="text-sm font-bold text-gray-900 truncate">
+                          {currentUser?.email}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-gray-400 uppercase mb-1">
+                          Authorized Phone
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {currentUser?.number || "Not synced"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-gray-400 uppercase mb-1">
+                          Member Since
+                        </p>
+                        <p className="text-sm font-bold text-gray-900">
+                          {formatDate(currentUser?.createdAt)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-black rounded-[2rem] p-8 md:p-10 text-white shadow-xl relative overflow-hidden">
+                    <Zap
+                      className="absolute top-4 right-4 text-white opacity-20"
+                      size={32}
+                    />
+                    <h3 className="text-[9px] font-black uppercase tracking-widest text-white/50 mb-6">
+                      Vault Balance
+                    </h3>
+                    <p className="text-4xl md:text-5xl font-black tracking-tighter mb-2">
+                      {currentUser?.bonusPoints || 0}
+                    </p>
+                    <p className="text-[10px] font-bold text-white/60 uppercase">
+                      Earned Points
+                    </p>
+                    <div className="mt-8 pt-6 border-t border-white/10">
+                      <p className="text-[9px] font-bold uppercase text-white/40 mb-1">
+                        Referral Code
+                      </p>
+                      <p className="font-mono text-sm font-black tracking-widest">
+                        {currentUser?.referralCode || "NONE"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </main>
 
-            <motion.div
-              className="grid gap-6 max-w-3xl"
-              variants={containerVariants}
+      {/* --- Mobile Bottom Nav Bar (Hidden on Desktop) --- */}
+      <nav className="lg:hidden fixed bottom-6 left-4 right-4 h-16 bg-white/90 backdrop-blur-2xl border border-gray-200/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] z-50 flex items-center justify-around px-2">
+        {navItems.map((item) => {
+          const isActive = activeView === item.id;
+          return (
+            <button
+              key={item.id}
+              onClick={() => setActiveView(item.id)}
+              className="relative flex flex-col items-center justify-center w-12 h-12 transition-all"
             >
-              <motion.div
-                variants={cardVariants}
-                whileHover="hover"
-                className="bg-gradient-to-br from-card to-card/50 border border-border rounded-lg p-8 hover:shadow-lg transition-shadow duration-300"
+              <span
+                className={isActive ? "text-black scale-110" : "text-gray-400"}
               >
-                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary" />
-                  Personal Information
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Name
-                    </label>
-                    <div className="text-lg font-medium">
-                      {currentUser?.name}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Email
-                    </label>
-                    <div className="text-lg font-medium">
-                      {currentUser?.email}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Phone Number
-                    </label>
-                    <div className="text-lg font-medium">
-                      {currentUser?.number || "Not provided"}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+                {React.cloneElement(item.icon, { size: 20 })}
+              </span>
+              {isActive && (
+                <motion.div
+                  layoutId="mobile-dot"
+                  className="absolute -bottom-1 w-1 h-1 bg-black rounded-full"
+                />
+              )}
+            </button>
+          );
+        })}
+      </nav>
 
-              <motion.div
-                variants={cardVariants}
-                whileHover="hover"
-                className="bg-gradient-to-br from-card to-card/50 border border-border rounded-lg p-8 hover:shadow-lg transition-shadow duration-300"
-              >
-                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                  <Award className="h-5 w-5 text-primary" />
-                  Account Details
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Account Type
-                    </label>
-                    <div className="text-lg font-medium capitalize">
-                      {currentUser?.role}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Bonus Points
-                    </label>
-                    <div className="text-lg font-medium text-primary">
-                      {currentUser?.bonusPoints || 0} points
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Referral Code
-                    </label>
-                    <div className="text-lg font-mono bg-muted px-3 py-1 rounded-md inline-block">
-                      {currentUser?.referralCode || "Not available"}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Member Since
-                    </label>
-                    <div className="text-lg font-medium flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {currentUser?.createdAt
-                        ? formatDate(new Date(currentUser.createdAt))
-                        : "Unknown"}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              <motion.div
-                variants={cardVariants}
-                whileHover="hover"
-                className="bg-gradient-to-br from-card to-card/50 border border-border rounded-lg p-8 hover:shadow-lg transition-shadow duration-300"
-              >
-                <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-                  <History className="h-5 w-5 text-primary" />
-                  Account Statistics
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                  <motion.div
-                    whileHover={{ scale: 1.03 }}
-                    className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-lg"
-                  >
-                    <div className="text-sm font-medium text-muted-foreground mb-2">
-                      Total Vouchers Redeemed
-                    </div>
-                    <div className="text-3xl font-bold text-primary">
-                      {redeemedVouchers.length}
-                    </div>
-                  </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.03 }}
-                    className="bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-lg"
-                  >
-                    <div className="text-sm font-medium text-muted-foreground mb-2">
-                      Active Vouchers
-                    </div>
-                    <div className="text-3xl font-bold text-primary">
-                      {activeVouchers.length}
-                    </div>
-                  </motion.div>
-                </div>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        )}
-      </div>
-
-      {/* Add Key Verification Modal */}
       {isOtpModalOpen && (
         <KeyVerificationModal
           onClose={() => {

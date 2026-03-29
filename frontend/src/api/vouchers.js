@@ -22,7 +22,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add response interceptor for better error handling
@@ -31,7 +31,7 @@ api.interceptors.response.use(
   (error) => {
     console.error("API Error:", error.response?.data || error.message);
     return Promise.reject(error);
-  }
+  },
 );
 
 // Create voucher
@@ -124,6 +124,22 @@ const completeRedemption = async (data) => {
   }
 };
 
+// Upload image
+const uploadImage = async (formData) => {
+  try {
+    const response = await api.post("/vouchers/upload-image", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    console.log("Upload response:", response.data);
+    return response.data;
+  } catch (error) {
+    console.error("Error uploading image:", error);
+    throw error.response?.data || error;
+  }
+};
+
 const voucherService = {
   createVoucher,
   getVouchers,
@@ -133,6 +149,7 @@ const voucherService = {
   redeemVoucher,
   findVoucherByCode,
   completeRedemption,
+  uploadImage,
 };
 
 export default voucherService;

@@ -8,6 +8,43 @@ import {
   generateVoucherCode,
 } from "../utils/encryption.js";
 import { sendPrivateKeyEmail } from "../utils/emailService.js";
+import multer from "multer";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Configure multer for image uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "../uploads"));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, "voucher-" + uniqueSuffix + path.extname(file.originalname));
+  },
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|gif|svg/;
+    const extname = allowedTypes.test(
+      path.extname(file.originalname).toLowerCase(),
+    );
+    const mimetype = allowedTypes.test(file.mimetype);
+
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error("Only image files are allowed!"));
+    }
+  },
+});
 
 // Create a new voucher
 export const createVoucher = async (req, res) => {
@@ -85,11 +122,11 @@ export const getVouchers = async (req, res) => {
       try {
         if (voucherObj.encryptedCode && voucherObj.encryptedPrivateKey) {
           const decryptedPrivateKey = decryptAES(
-            voucherObj.encryptedPrivateKey
+            voucherObj.encryptedPrivateKey,
           );
           const decryptedCode = decrypt(
             voucherObj.encryptedCode,
-            decryptedPrivateKey
+            decryptedPrivateKey,
           );
 
           console.log(`[DEBUG] Voucher ${voucherObj._id}:`, {
@@ -102,7 +139,7 @@ export const getVouchers = async (req, res) => {
       } catch (error) {
         console.error(
           `[DEBUG] Failed to decrypt voucher ${voucherObj._id}:`,
-          error
+          error,
         );
       }
 
@@ -152,7 +189,7 @@ export const updateVoucher = async (req, res) => {
     const voucher = await Voucher.findOneAndUpdate(
       { _id: id, vendorId: req.user._id }, // Only update if it belongs to the vendor
       updates,
-      { new: true }
+      { new: true },
     );
 
     if (!voucher) {
@@ -234,7 +271,7 @@ export const redeemVoucher = async (req, res) => {
     }).select("+encryptedCode +encryptedPrivateKey");
     console.log(
       "[DEBUG] voucher.encryptedPrivateKey =",
-      voucher.encryptedPrivateKey
+      voucher.encryptedPrivateKey,
     );
 
     console.log("[DEBUG] Voucher fetched:", voucher);
@@ -285,7 +322,7 @@ export const redeemVoucher = async (req, res) => {
             type: voucher.type,
             maxDiscount: voucher.maxDiscount,
           },
-          decryptedKey
+          decryptedKey,
         );
 
         return res.json({
@@ -380,7 +417,7 @@ export const findVoucherByCode = async (req, res) => {
             const decryptedPrivateKey = decryptAES(voucher.encryptedPrivateKey);
             const decryptedCode = decrypt(
               voucher.encryptedCode,
-              decryptedPrivateKey
+              decryptedPrivateKey,
             );
 
             console.log("[DEBUG] Decrypted code:", decryptedCode);
@@ -401,7 +438,7 @@ export const findVoucherByCode = async (req, res) => {
       } catch (error) {
         console.error(
           `[DEBUG] Error processing voucher ${voucher._id}:`,
-          error
+          error,
         );
         continue;
       }
@@ -490,7 +527,7 @@ export const completeVoucherRedemption = async (req, res) => {
         const decryptedPrivateKey = decryptAES(voucher.encryptedPrivateKey);
         const decryptedCode = decrypt(
           voucher.encryptedCode,
-          decryptedPrivateKey
+          decryptedPrivateKey,
         );
 
         console.log("[DEBUG] Decrypted code:", decryptedCode);
@@ -530,7 +567,7 @@ export const completeVoucherRedemption = async (req, res) => {
           },
         },
       },
-      { new: true }
+      { new: true },
     );
 
     // Add voucher to customer's redeemed vouchers
@@ -551,3 +588,32 @@ export const completeVoucherRedemption = async (req, res) => {
     });
   }
 };
+
+// Upload voucher image
+export const uploadVoucherImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "No image file provided",
+      });
+    }
+
+    // Create the image URL (assuming the uploads folder is served statically)
+    const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+
+    res.json({
+      success: true,
+      message: "Image uploaded successfully",
+      imageUrl: imageUrl,
+    });
+  } catch (error) {
+    console.error("Image upload error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to upload image",
+    });
+  }
+};
+
+export { upload };
