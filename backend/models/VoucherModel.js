@@ -21,6 +21,14 @@ const voucherSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    isPaid: {
+      type: Boolean,
+      default: false,
+    },
+    pointsRequired: {
+      type: Number,
+      default: 0,
+    },
     maxDiscount: {
       type: Number, // optional, used only for percentage type
     },

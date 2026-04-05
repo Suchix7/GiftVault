@@ -64,7 +64,8 @@ const isVendor = (req, res, next) => {
     });
   }
 
-  if (req.user.role !== "vendor") {
+  // Allow both vendors and admins to access vendor routes
+  if (req.user.role !== "vendor" && req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
       message: "Not authorized as vendor",

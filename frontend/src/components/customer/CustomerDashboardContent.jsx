@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, User, Camera, QrCode } from "lucide-react";
+import { ShieldCheck, User, Camera, QrCode, Zap } from "lucide-react";
 import CustomerVoucherCard from "@/components/customer/CustomerVoucherCard";
 import DynamicStampCard from "@/components/loyalty/DynamicStampCard";
 
@@ -24,6 +24,7 @@ export default function CustomerDashboardContent({
   loyaltyPrograms = {},
   setLoyaltyPrograms = () => {},
   handleOpenScanner = () => {},
+  globalTotalPoints = 0,
 }) {
   const vouchersToShow =
     activeTab === "active"
@@ -65,21 +66,81 @@ export default function CustomerDashboardContent({
               </button>
             ))}
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-            {vouchersToShow.map((voucher) => (
-              <CustomerVoucherCard
-                key={voucher._id}
-                voucher={voucher}
-                type={activeTab}
-                vendors={vendors}
-                redemptionCodes={redemptionCodes}
-                onRedeem={handleRedeemClick}
-                onShowQr={handleShowQr}
-                formatDate={formatDate}
-                getRedemptionDate={getRedemptionDate}
-              />
-            ))}
-          </div>
+          {activeTab === "active" ? (
+             <>
+                <div className="mb-4 mt-8">
+                  <h2 className="text-xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
+                    <ShieldCheck size={20} className="text-emerald-500"/>
+                    Free Vault Assets
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                  {vouchersToShow.filter(v => !v.isPaid).map((voucher) => (
+                    <CustomerVoucherCard
+                      key={voucher._id}
+                      voucher={voucher}
+                      type={activeTab}
+                      vendors={vendors}
+                      redemptionCodes={redemptionCodes}
+                      onRedeem={handleRedeemClick}
+                      onShowQr={handleShowQr}
+                      formatDate={formatDate}
+                      getRedemptionDate={getRedemptionDate}
+                      currentUser={currentUser}
+                      userPoints={globalTotalPoints}
+                    />
+                  ))}
+                  {vouchersToShow.filter(v => !v.isPaid).length === 0 && (
+                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest col-span-full">No free assets available right now.</p>
+                  )}
+                </div>
+
+                <div className="mb-4 mt-12 pt-8 border-t border-gray-100">
+                  <h2 className="text-xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
+                    <Zap size={20} className="text-yellow-500" />
+                    Premium Assets (Requires Points)
+                  </h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                  {vouchersToShow.filter(v => v.isPaid).map((voucher) => (
+                    <CustomerVoucherCard
+                      key={voucher._id}
+                      voucher={voucher}
+                      type={activeTab}
+                      vendors={vendors}
+                      redemptionCodes={redemptionCodes}
+                      onRedeem={handleRedeemClick}
+                      onShowQr={handleShowQr}
+                      formatDate={formatDate}
+                      getRedemptionDate={getRedemptionDate}
+                      currentUser={currentUser}
+                      userPoints={globalTotalPoints}
+                    />
+                  ))}
+                  {vouchersToShow.filter(v => v.isPaid).length === 0 && (
+                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest col-span-full">No premium assets available right now.</p>
+                  )}
+                </div>
+             </>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 mt-8">
+              {vouchersToShow.map((voucher) => (
+                <CustomerVoucherCard
+                  key={voucher._id}
+                  voucher={voucher}
+                  type={activeTab}
+                  vendors={vendors}
+                  redemptionCodes={redemptionCodes}
+                  onRedeem={handleRedeemClick}
+                  onShowQr={handleShowQr}
+                  formatDate={formatDate}
+                  getRedemptionDate={getRedemptionDate}
+                  currentUser={currentUser}
+                  userPoints={globalTotalPoints}
+                />
+              ))}
+            </div>
+          )}
         </motion.div>
       )}
 

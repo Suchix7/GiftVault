@@ -96,6 +96,8 @@ const Vendor_Dashboard = () => {
     expiryDate: "",
     maxDiscount: "",
     color: "#000000",
+    isPaid: false,
+    pointsRequired: 0,
   });
 
   const [previewLogo, setPreviewLogo] = useState(null);
@@ -354,6 +356,8 @@ const Vendor_Dashboard = () => {
         campaign: "",
         expiryDate: "",
         color: "#000000",
+        isPaid: false,
+        pointsRequired: 0,
       });
       setPreviewLogo(null);
 
@@ -484,6 +488,11 @@ const Vendor_Dashboard = () => {
   };
 
   const handleDecodeQrPayload = async (payload) => {
+    if (payload.type === "dynamic_loyalty") {
+      toast.info("This is a Points Granting QR code. Customers should scan this to receive points.");
+      return;
+    }
+
     if (payload.type === "loyalty_reward") {
       try {
         setIsRedeeming(true);

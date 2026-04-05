@@ -182,6 +182,13 @@ export const verifyQRToken = asyncHandler(async (req, res) => {
   // Update UserProgress with the earned points/stamps
   let userProgress = await UserProgress.findOne({ userId, vendorId });
 
+  // ALSO Update Global User Points
+  const user = await User.findById(userId);
+  if (user) {
+    user.bonusPoints = (user.bonusPoints || 0) + points;
+    await user.save();
+  }
+
   if (!userProgress) {
     userProgress = await UserProgress.create({
       userId,

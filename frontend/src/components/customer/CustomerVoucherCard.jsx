@@ -12,11 +12,16 @@ export default function CustomerVoucherCard({
   onShowQr,
   formatDate,
   getRedemptionDate,
+  currentUser,
+  userPoints: propUserPoints,
 }) {
   const redemptionData = redemptionCodes[voucher._id];
   const hasCode = Boolean(redemptionData?.code);
   const isRedeemed = type === "redeemed";
   const isExpired = type === "expired";
+
+  const userPoints = propUserPoints !== undefined ? propUserPoints : (currentUser?.bonusPoints || 0);
+  const isInsufficientPoints = voucher.isPaid && userPoints < voucher.pointsRequired;
 
   return (
     <motion.div
@@ -56,12 +61,19 @@ export default function CustomerVoucherCard({
             </p>
           </div>
           <div className="flex justify-between items-end border-t border-white/10 pt-3 md:pt-4">
-            <div>
-              <div className="bg-white/20 px-3 py-1 rounded-full inline-block mb-1">
+            <div className="flex flex-col gap-1.5 items-start">
+              <div className="bg-white/20 px-3 py-1 rounded-full inline-block">
                 <span className="text-lg md:text-xl font-black text-white tracking-tighter">
                   {voucher.type === "percentage" ? `${voucher.value}% Off` : `Rs. ${voucher.value}`}
                 </span>
               </div>
+              {voucher.isPaid && (
+                <div className="bg-yellow-500/20 backdrop-blur-sm border border-yellow-400/30 px-2 py-0.5 rounded-full inline-flex items-center">
+                  <span className="text-[9px] font-black text-yellow-300 uppercase tracking-widest">
+                    Cost: {voucher.pointsRequired} pts
+                  </span>
+                </div>
+              )}
             </div>
             <div className="text-right">
               <p className="text-[7px] md:text-[8px] font-bold uppercase tracking-widest text-white/40 mb-0.5">
@@ -101,10 +113,19 @@ export default function CustomerVoucherCard({
           </div>
         ) : (
           <Button
-            onClick={() => onRedeem(voucher)}
-            className="w-full h-12 md:h-14 rounded-2xl bg-black text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg hover:bg-gray-800 flex items-center justify-center gap-2"
+            onClick={() => !isInsufficientPoints && onRedeem(voucher)}
+            disabled={isInsufficientPoints}
+            className={`w-full h-12 md:h-14 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-lg flex items-center justify-center gap-2 transition-all ${
+              isInsufficientPoints
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                : "bg-black text-white hover:bg-gray-800"
+            }`}
           >
-            Unlock Redemption <ChevronRight size={14} />
+            {isInsufficientPoints ? (
+              <>Insufficient Points ({userPoints}/{voucher.pointsRequired})</>
+            ) : (
+              <>Unlock Redemption <ChevronRight size={14} /></>
+            )}
           </Button>
         )}
       </div>

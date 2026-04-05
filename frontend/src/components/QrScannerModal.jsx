@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import api from "@/api/axios";
 import jsQR from "jsqr";
 
-export default function QrScannerModal({ isOpen, onClose, onDecoded }) {
+export default function QrScannerModal({ isOpen, onClose, onDecoded, hideManualInput = false }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const frameRef = useRef(null);
@@ -110,6 +110,20 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded }) {
           onDecoded({
             type: "dynamic_loyalty",
             token: parts[1],
+          });
+          onClose();
+          return;
+        }
+      }
+
+      // Format: URL-based verification token (e.g., http://.../verify?token=...)
+      if (qrToken && typeof qrToken === "string" && qrToken.includes("/verify?token=")) {
+        const url = new URL(qrToken);
+        const tokenVal = url.searchParams.get("token");
+        if (tokenVal) {
+          onDecoded({
+            type: "dynamic_loyalty",
+            token: tokenVal,
           });
           onClose();
           return;
@@ -305,19 +319,21 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded }) {
                         <span className="text-xs uppercase tracking-[0.3em]">Encrypted token decode</span>
                       </div>
                     </div>
-                    <div className="space-y-3">
-                      <label className="text-xs uppercase tracking-[0.3em] text-slate-400">Paste QR token</label>
-                      <textarea
-                        rows={4}
-                        value={manualToken}
-                        onChange={(e) => setManualToken(e.target.value)}
-                        placeholder="Paste extracted QR token here"
-                        className="w-full min-h-[8rem] rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-600"
-                      />
-                      <Button type="button" onClick={() => handleScan(manualToken)} className="w-full">
-                        Decode Token
-                      </Button>
-                    </div>
+                    {!hideManualInput && (
+                      <div className="space-y-3">
+                        <label className="text-xs uppercase tracking-[0.3em] text-slate-400">Paste QR token</label>
+                        <textarea
+                          rows={4}
+                          value={manualToken}
+                          onChange={(e) => setManualToken(e.target.value)}
+                          placeholder="Paste extracted QR token here"
+                          className="w-full min-h-[8rem] rounded-3xl border border-slate-800 bg-slate-900/80 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-600"
+                        />
+                        <Button type="button" onClick={() => handleScan(manualToken)} className="w-full">
+                          Decode Token
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <canvas ref={canvasRef} className="hidden" />

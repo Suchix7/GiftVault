@@ -156,7 +156,7 @@ const VendorQRGenerator = ({ vendorId }) => {
                   
                   <div className="flex justify-center py-4 bg-white border border-gray-100 rounded-2xl shadow-inner">
                     <QRCodeSVG
-                      value={`dynamic-loyalty|${qr.token}`}
+                      value={qr.verifyUrl}
                       size={200}
                       level="H"
                       includeMargin={false}

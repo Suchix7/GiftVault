@@ -8,7 +8,7 @@ import {
   claimReward,
   getVendorLoyaltyStats,
 } from "../controllers/loyaltyController.js";
-import { protect } from "../middleware/authMiddleware.js";
+import { protect, isVendor } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -17,10 +17,10 @@ router.post("/verify-qr", verifyQRToken);
 router.get("/progress/:userId/:vendorId", getUserProgress);
 router.get("/rules/:vendorId", getLoyaltyRules);
 
-// Vendor/Admin routes (add authentication middleware as needed)
-router.post("/generate-qr", protect, generateQRToken);
-router.patch("/rules/:vendorId", protect, updateLoyaltyRules);
-router.post("/claim-reward", protect, claimReward);
-router.get("/vendor-stats/:vendorId", protect, getVendorLoyaltyStats);
+// Vendor/Admin routes
+router.post("/generate-qr", protect, isVendor, generateQRToken);
+router.patch("/rules/:vendorId", protect, isVendor, updateLoyaltyRules);
+router.post("/claim-reward", protect, isVendor, claimReward);
+router.get("/vendor-stats/:vendorId", protect, isVendor, getVendorLoyaltyStats);
 
 export default router;

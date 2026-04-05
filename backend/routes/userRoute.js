@@ -1,5 +1,6 @@
 import express from "express";
 import { User } from "../models/UserModel.js";
+import UserProgress from "../models/UserProgressModel.js";
 import {
   createUser,
   updateUser,
@@ -17,6 +18,16 @@ router.get("/profile", protect, async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    const progresses = await UserProgress.find({ userId: user._id });
+    const calculatedTotal = progresses.reduce((sum, p) => sum + (p.totalPoints || 0), 0);
+    
+    // Sycn points if they've diverged (e.g. existing users or sync failure)
+    if (user.bonusPoints < calculatedTotal) {
+      user.bonusPoints = calculatedTotal;
+      await user.save();
+    }
+
     res.json({ user });
   } catch (error) {
     console.error("Error fetching user profile:", error);

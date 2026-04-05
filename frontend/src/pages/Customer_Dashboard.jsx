@@ -10,6 +10,8 @@ import { format } from "date-fns";
 import CustomerDashboardSidebar from "@/components/customer/CustomerDashboardSidebar";
 import CustomerDashboardContent from "@/components/customer/CustomerDashboardContent";
 import loyaltyAPI from "@/api/loyalty";
+import LoyaltySuccessModal from "@/components/loyalty/LoyaltySuccessModal";
+import { useNavigate } from "react-router-dom";
 
 export default function CustomerDashboard() {
   const [activeView, setActiveView] = useState("vouchers");
@@ -26,6 +28,9 @@ export default function CustomerDashboard() {
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [loyaltyPrograms, setLoyaltyPrograms] = useState({});
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [verificationResult, setVerificationResult] = useState(null);
+  const navigate = useNavigate();
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -113,16 +118,20 @@ export default function CustomerDashboard() {
   const handleScannerDecoded = async (data) => {
     if (data.type === "dynamic_loyalty") {
       try {
-        const res = await loyaltyAPI.verifyQRToken(data.token, currentUser._id);
+        const res = await loyaltyAPI.verifyQRToken(data.token, currentUser?._id);
         if (res.success) {
-          toast.success(res.message || "Points earned successfully!");
-          if (res.data?.rewardEarned) {
-             toast.success("Congratulations! You earned a reward!");
-          }
+          setVerificationResult(res.data);
+          setIsSuccessModalOpen(true);
+          
+          // Sync point balances
+          const userRes = await api.get("/users/profile");
+          setCurrentUser(userRes.data.user);
           await refreshLoyaltyPrograms();
+        } else {
+          toast.error(res.message || "Sync Protocol Failure");
         }
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to redeem QR code");
+        toast.error(error.response?.data?.message || "Invalid Sync Token");
       }
     }
   };
@@ -275,6 +284,7 @@ export default function CustomerDashboard() {
             loyaltyPrograms={loyaltyPrograms}
             setLoyaltyPrograms={setLoyaltyPrograms}
             handleOpenScanner={() => setIsScannerOpen(true)}
+            globalTotalPoints={globalTotalPoints}
           />
         </AnimatePresence>
       </main>
@@ -308,8 +318,17 @@ export default function CustomerDashboard() {
           isOpen={isScannerOpen}
           onClose={() => setIsScannerOpen(false)}
           onDecoded={handleScannerDecoded}
+          hideManualInput={true}
         />
       )}
+
+      {/* Success Modal */}
+      <LoyaltySuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        result={verificationResult}
+        userId={currentUser?._id}
+      />
     </div>
   );
 }

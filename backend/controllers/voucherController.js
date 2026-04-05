@@ -1,5 +1,6 @@
 import Voucher from "../models/VoucherModel.js";
 import { User } from "../models/UserModel.js";
+import UserProgress from "../models/UserProgressModel.js";
 import {
   encrypt,
   decrypt,
@@ -229,7 +230,7 @@ export const deleteVoucher = async (req, res) => {
 // Public: Get all active vouchers (no auth required)
 export const getAllActiveVouchers = async (req, res) => {
   try {
-    const vouchers = await Voucher.find({ status: "active" })
+    const vouchers = await Voucher.find({ status: { $in: ["active", "expired"] } })
       .sort({ createdAt: -1 })
       .populate({
         path: "vendorId",
@@ -291,6 +292,25 @@ export const redeemVoucher = async (req, res) => {
         success: false,
         message: "You have already redeemed this voucher",
       });
+    }
+
+    // 🔒 Block if paid voucher and insufficient points
+    if (voucher.isPaid && voucher.pointsRequired > 0) {
+      const progresses = await UserProgress.find({ userId: customerId });
+      const currentLoyaltySum = progresses.reduce((sum, p) => sum + (p.totalPoints || 0), 0);
+      
+      // Sync global points if they've diverged
+      if ((req.user.bonusPoints || 0) < currentLoyaltySum) {
+         req.user.bonusPoints = currentLoyaltySum;
+         await req.user.save();
+      }
+
+      if ((req.user.bonusPoints || 0) < voucher.pointsRequired) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient loyalty points. This voucher requires ${voucher.pointsRequired} points but you only have ${req.user.bonusPoints || 0}.`,
+        });
+      }
     }
 
     if (
@@ -591,6 +611,44 @@ export const completeVoucherRedemption = async (req, res) => {
         success: false,
         message: "Invalid voucher code",
       });
+    }
+
+    // Process payment via loyalty points for paid vouchers
+    if (voucher.isPaid && voucher.pointsRequired > 0) {
+      const progresses = await UserProgress.find({ userId: customer._id });
+      const currentLoyaltySum = progresses.reduce((sum, p) => sum + (p.totalPoints || 0), 0);
+
+      // Sync if needed
+      if ((customer.bonusPoints || 0) < currentLoyaltySum) {
+        customer.bonusPoints = currentLoyaltySum;
+        await customer.save();
+      }
+
+      if ((customer.bonusPoints || 0) < voucher.pointsRequired) {
+        return res.status(400).json({
+          success: false,
+          message: `Insufficient loyalty points. This voucher requires ${voucher.pointsRequired} points but customer only has ${customer.bonusPoints || 0}.`,
+        });
+      }
+
+      // Deduct from Global Balance
+      customer.bonusPoints -= voucher.pointsRequired;
+      await customer.save();
+
+      // Also sync deductions from UserProgress to maintain local consistency
+      const userProgresses = await UserProgress.find({ userId: customer._id });
+      let remainingToDeduct = voucher.pointsRequired;
+      for (let progress of userProgresses) {
+        if (remainingToDeduct <= 0) break;
+        if (progress.totalPoints >= remainingToDeduct) {
+          progress.totalPoints -= remainingToDeduct;
+          remainingToDeduct = 0;
+        } else {
+          remainingToDeduct -= progress.totalPoints;
+          progress.totalPoints = 0;
+        }
+        await progress.save();
+      }
     }
 
     // Add redemption record to voucher

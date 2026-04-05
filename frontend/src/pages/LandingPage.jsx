@@ -97,10 +97,10 @@ export default function Home() {
   const scaleCTA = useTransform(scrollYProgress, [0.8, 1], [0.8, 1]);
 
   const brandLogos = [
-    { src: "src/assets/brands/1.png", alt: "KFC", code: "Enterprise" },
+    { src: "src/assets/brands/1.png", alt: "Babal", code: "Fashion" },
     { src: "src/assets/brands/2.png", alt: "Kafemandu", code: "Franchise" },
-    { src: "src/assets/brands/3.png", alt: "Himalayan Java", code: "Premium" },
-    { src: "src/assets/brands/4.png", alt: "Silk", code: "Boutique" },
+    { src: "src/assets/brands/3.png", alt: "Himalayan Java", code: "Cafe" },
+    { src: "src/assets/brands/4.png", alt: "Donut Drool", code: "Food" },
   ];
 
   return (

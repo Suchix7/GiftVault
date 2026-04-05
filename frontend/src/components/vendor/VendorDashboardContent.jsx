@@ -277,6 +277,58 @@ export default function VendorDashboardContent({
                 />
               </div>
 
+              {/* Purchase Mode / Loyalty Cost */}
+              <div className="md:col-span-2 flex flex-col sm:flex-row gap-6 my-2">
+                <div className="flex-1 space-y-1.5">
+                  <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 ml-1">
+                    Purchase Model
+                  </label>
+                  <div className="flex bg-[#F5F5F7] p-1 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setNewVoucher({ ...newVoucher, isPaid: false, pointsRequired: 0 })}
+                      className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${
+                        !newVoucher.isPaid ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      Free
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setNewVoucher({ ...newVoucher, isPaid: true })}
+                      className={`flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${
+                        newVoucher.isPaid ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"
+                      }`}
+                    >
+                      Paid (Points)
+                    </button>
+                  </div>
+                </div>
+                
+                <AnimatePresence>
+                  {newVoucher.isPaid && (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }} 
+                      animate={{ opacity: 1, scale: 1 }} 
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      className="flex-1 space-y-1.5"
+                    >
+                      <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 ml-1">
+                        Loyalty Points Cost
+                      </label>
+                      <input
+                        type="number"
+                        value={newVoucher.pointsRequired}
+                        onChange={(e) => setNewVoucher({ ...newVoucher, pointsRequired: parseInt(e.target.value) || 0 })}
+                        min="1"
+                        className="w-full h-11 px-4 bg-white border border-gray-200 rounded-xl focus:ring-4 focus:ring-gray-50 transition-all outline-none font-black text-sm"
+                      />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* Type Selection */}
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 ml-1">Valuation Type</label>
                 <select
@@ -544,7 +596,12 @@ export default function VendorDashboardContent({
                           </div>
                         </td>
                         <td className="px-8 py-5 hidden sm:table-cell">
-                          <span className="font-black text-sm text-gray-900">{voucher.type === "percentage" ? `${voucher.value}% OFF` : `Rs. ${voucher.value?.toLocaleString()}`}</span>
+                          <div className="flex flex-col">
+                            <span className="font-black text-sm text-gray-900">{voucher.type === "percentage" ? `${voucher.value}% OFF` : `Rs. ${voucher.value?.toLocaleString()}`}</span>
+                            {voucher.isPaid && (
+                              <span className="text-[9px] font-bold text-yellow-600 uppercase tracking-tighter">Cost: {voucher.pointsRequired} pts</span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-8 py-5 hidden lg:table-cell">
                           <span className="text-xs font-bold text-gray-500 uppercase tracking-tighter">{voucher.campaign || "—"}</span>
@@ -581,7 +638,16 @@ export default function VendorDashboardContent({
                   </div>
                   <h3 className="text-xl font-bold tracking-tight text-gray-900 mb-1 truncate uppercase">{voucher.name}</h3>
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mb-6">Vault Item #{voucher._id.slice(-6)}</p>
-                  <div className="text-4xl font-black tracking-tighter text-black mb-8">{voucher.type === "percentage" ? `${voucher.value}%` : `Rs.${voucher.value?.toLocaleString()}`}</div>
+                  <div className="flex items-end justify-between mb-8">
+                    <div className="text-4xl font-black tracking-tighter text-black">{voucher.type === "percentage" ? `${voucher.value}%` : `Rs.${voucher.value?.toLocaleString()}`}</div>
+                    {voucher.isPaid && (
+                      <div className="bg-yellow-50 text-yellow-600 px-3 py-1 rounded-full border border-yellow-100 mb-1">
+                        <span className="text-[10px] font-black uppercase tracking-widest tracking-tighter">
+                          {voucher.pointsRequired} pts
+                        </span>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex justify-between items-center pt-6 border-t border-gray-50">
                     <div className="flex flex-col">
                       <span className="text-[9px] font-black uppercase text-gray-400 tracking-widest">Valid Until</span>
@@ -671,6 +737,38 @@ export default function VendorDashboardContent({
                       <div className="md:col-span-2 space-y-2">
                         <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Asset Nomenclature</label>
                         <input value={selectedVoucher.name} onChange={(e) => setSelectedVoucher({ ...selectedVoucher, name: e.target.value })} className="w-full h-14 px-5 bg-gray-50 rounded-2xl font-bold text-gray-900 border-transparent focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 outline-none transition-all" />
+                      </div>
+
+                      <div className="md:col-span-2 flex flex-col sm:flex-row gap-6">
+                        <div className="flex-1 space-y-2">
+                          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Purchase Model</label>
+                          <div className="flex bg-gray-50 p-1 rounded-2xl h-14">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedVoucher({ ...selectedVoucher, isPaid: false, pointsRequired: 0 })}
+                              className={`flex-1 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+                                !selectedVoucher.isPaid ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"
+                              }`}
+                            >
+                              Free
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedVoucher({ ...selectedVoucher, isPaid: true })}
+                              className={`flex-1 text-[10px] font-bold uppercase tracking-widest rounded-xl transition-all ${
+                                selectedVoucher.isPaid ? "bg-white shadow-sm text-black" : "text-gray-400 hover:text-gray-600"
+                              }`}
+                            >
+                              Paid Tracker
+                            </button>
+                          </div>
+                        </div>
+                        {selectedVoucher.isPaid && (
+                          <div className="flex-1 space-y-2">
+                            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-400 ml-1">Points Required</label>
+                            <input type="number" min="1" value={selectedVoucher.pointsRequired} onChange={(e) => setSelectedVoucher({ ...selectedVoucher, pointsRequired: parseInt(e.target.value) || 0 })} className="w-full h-14 px-5 bg-white border border-gray-100 rounded-2xl font-black text-lg outline-none focus:ring-4 focus:ring-gray-50" />
+                          </div>
+                        )}
                       </div>
 
                       <div className="space-y-2">
