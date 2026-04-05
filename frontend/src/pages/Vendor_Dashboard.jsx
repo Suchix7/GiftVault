@@ -1,6 +1,5 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
-import { FaEye, FaEdit, FaTrash } from "react-icons/fa";
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -34,6 +33,8 @@ import { toast } from "sonner";
 import api from "@/api/axios";
 import LogoutButton from "@/components/LogoutButton";
 import voucherService from "@/api/vouchers";
+import VendorDashboardSidebar from "@/components/vendor/VendorDashboardSidebar";
+import VendorDashboardContent from "@/components/vendor/VendorDashboardContent";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart,
@@ -47,24 +48,6 @@ import {
   Pie,
   Cell,
 } from "recharts";
-
-const StatusBadge = ({ status }) => {
-  const statusColors = {
-    active: "bg-green-100 text-green-800",
-    draft: "bg-yellow-100 text-yellow-800",
-    expired: "bg-red-100 text-red-800",
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-        statusColors[status] || "bg-gray-100 text-gray-800"
-      }`}
-    >
-      {status.charAt(0).toUpperCase() + status.slice(1)}
-    </span>
-  );
-};
 
 const Vendor_Dashboard = () => {
   // Navigation state
@@ -84,6 +67,19 @@ const Vendor_Dashboard = () => {
   const [vouchers, setVouchers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // User profile state
+  const [userProfile, setUserProfile] = useState(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+
+  // Profile form state
+  const [profileForm, setProfileForm] = useState({
+    name: "",
+    email: "",
+    companyName: "",
+    number: "",
+  });
+  const [updatingProfile, setUpdatingProfile] = useState(false);
 
   // New voucher form state
   const [newVoucher, setNewVoucher] = useState({
@@ -190,6 +186,30 @@ const Vendor_Dashboard = () => {
 
     loadVouchers();
   }, [voucherCreated]);
+
+  // Load user profile
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      try {
+        setProfileLoading(true);
+        const response = await api.get("/users/profile");
+        setUserProfile(response.data.user);
+        setProfileForm({
+          name: response.data.user.name || "",
+          email: response.data.user.email || "",
+          companyName: response.data.user.companyName || "",
+          number: response.data.user.number || "",
+        });
+      } catch (err) {
+        console.error("Failed to load user profile:", err);
+        toast.error("Failed to load profile data");
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    loadUserProfile();
+  }, []);
 
   // Filter vouchers
   const filteredVouchers = useMemo(() => {
@@ -444,6 +464,22 @@ const Vendor_Dashboard = () => {
       );
     } finally {
       setIsRedeeming(false);
+    }
+  };
+
+  // Handle profile update
+  const handleUpdateProfile = async (e) => {
+    e.preventDefault();
+    setUpdatingProfile(true);
+    try {
+      const response = await api.patch(`/users/${userProfile._id}`, profileForm);
+      setUserProfile(response.data.user);
+      toast.success("Profile updated successfully");
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      toast.error(error.response?.data?.message || "Failed to update profile");
+    } finally {
+      setUpdatingProfile(false);
     }
   };
 
@@ -2121,6 +2157,15 @@ const Vendor_Dashboard = () => {
   };
   // Update renderSettingsContent
   const renderSettingsContent = () => {
+    if (profileLoading) {
+      return (
+        <div className="h-[60vh] flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+          <div className="w-8 h-8 border-4 border-gray-100 border-t-black rounded-full animate-spin mr-3" />
+          Loading Profile...
+        </div>
+      );
+    }
+
     return (
       <motion.div
         className="space-y-10 pb-20"
@@ -2146,84 +2191,69 @@ const Vendor_Dashboard = () => {
                 <Users className="w-5 h-5 text-gray-400" /> Account Profile
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">
-                    Entity Name
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
-                    placeholder="Acme Corp"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">
-                    Access Email
-                  </label>
-                  <input
-                    type="email"
-                    className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
-                    placeholder="admin@acme.com"
-                  />
-                </div>
-              </div>
-
-              <div className="pt-8 flex justify-end">
-                <button className="px-8 py-3 bg-black text-white rounded-full text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all active:scale-95">
-                  Save Changes
-                </button>
-              </div>
-            </div>
-
-            {/* Preferences Card */}
-            <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 md:p-10 shadow-sm">
-              <h2 className="text-xl font-bold tracking-tight text-gray-900 mb-8 flex items-center gap-3">
-                <Zap className="w-5 h-5 text-gray-400" /> Notifications
-              </h2>
-
-              <div className="divide-y divide-gray-50">
-                {[
-                  {
-                    title: "Push Notifications",
-                    desc: "Real-time ledger updates on your device.",
-                    active: true,
-                  },
-                  {
-                    title: "Redemption Alerts",
-                    desc: "Get notified immediately when a voucher is burned.",
-                    active: true,
-                  },
-                  {
-                    title: "Marketing Strategy",
-                    desc: "Receive curated growth tips and market insights.",
-                    active: false,
-                  },
-                ].map((item, i) => (
-                  <div
-                    key={i}
-                    className="py-6 flex items-center justify-between group"
-                  >
-                    <div className="space-y-1">
-                      <p className="font-bold text-gray-900 text-sm">
-                        {item.title}
-                      </p>
-                      <p className="text-xs text-gray-400 font-medium">
-                        {item.desc}
-                      </p>
-                    </div>
-                    {/* Custom Premium Switch UI */}
-                    <div
-                      className={`w-10 h-5 rounded-full relative transition-colors duration-300 cursor-pointer ${item.active ? "bg-black" : "bg-gray-200"}`}
-                    >
-                      <div
-                        className={`absolute top-1 w-3 h-3 bg-white rounded-full transition-all duration-300 ${item.active ? "left-6" : "left-1"}`}
-                      />
-                    </div>
+              <form onSubmit={handleUpdateProfile}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">
+                      Entity Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.name}
+                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
+                      required
+                    />
                   </div>
-                ))}
-              </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">
+                      Access Email
+                    </label>
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">
+                      Company Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileForm.companyName}
+                      onChange={(e) => setProfileForm({ ...profileForm, companyName: e.target.value })}
+                      className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400 ml-1">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      value={profileForm.number}
+                      onChange={(e) => setProfileForm({ ...profileForm, number: e.target.value })}
+                      className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-8 flex justify-end">
+                  <button
+                    type="submit"
+                    disabled={updatingProfile}
+                    className="px-8 py-3 bg-black text-white rounded-full text-xs font-bold uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updatingProfile ? "Updating..." : "Save Changes"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
 
@@ -2252,18 +2282,22 @@ const Vendor_Dashboard = () => {
                     Genesis Date
                   </p>
                   <p className="text-sm font-bold text-gray-900">
-                    January 2026
+                    {userProfile?.createdAt ? format(new Date(userProfile.createdAt), "MMMM yyyy") : "N/A"}
                   </p>
                 </div>
 
                 <div className="px-1">
                   <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-1">
-                    Plan
+                    Account Status
                   </p>
                   <p className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                    Business Pro{" "}
-                    <span className="text-[8px] bg-black text-white px-2 py-0.5 rounded-full uppercase tracking-tighter">
-                      Live
+                    {userProfile?.isApproved ? "Approved" : "Pending Approval"}
+                    <span className={`text-[8px] px-2 py-0.5 rounded-full uppercase tracking-tighter ${
+                      userProfile?.isApproved
+                        ? "bg-emerald-100 text-emerald-700"
+                        : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {userProfile?.isApproved ? "Active" : "Pending"}
                     </span>
                   </p>
                 </div>
@@ -2304,263 +2338,54 @@ const Vendor_Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-[#FBFBFB] text-[#1D1D1F] font-sans selection:bg-black selection:text-white overflow-hidden">
-      {/* --- Desktop Sidebar (Hidden on Mobile) --- */}
-      <aside className="hidden lg:flex w-64 border-r border-gray-100 bg-white flex-col">
-        <div className="p-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-black p-2 rounded-xl shadow-lg shadow-black/10 transition-transform hover:scale-105">
-              <Gift className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-black tracking-tighter uppercase">
-              GiftVault
-            </span>
-          </div>
-        </div>
-
-        <nav className="flex-1 px-4 py-4 overflow-y-auto">
-          <ul className="space-y-2">
-            {navItems.map((item) => {
-              const isActive = currentPage === item.id;
-              return (
-                <li key={item.id}>
-                  <button
-                    onClick={() => {
-                      setCurrentPage(item.id);
-                      if (item.id === "dashboard") setActiveTab("overview");
-                      if (item.id === "vouchers") setActiveTab("active");
-                      if (item.id === "distribution") setActiveTab("send");
-                      if (item.id === "settings") setActiveTab("general");
-                    }}
-                    className={`relative flex items-center gap-3 w-full px-4 py-3 text-[11px] font-bold uppercase tracking-[0.15em] transition-all rounded-2xl group ${
-                      isActive
-                        ? "text-black"
-                        : "text-gray-400 hover:text-gray-900"
-                    }`}
-                  >
-                    {isActive && (
-                      <motion.div
-                        layoutId="sidebar-pill"
-                        className="absolute inset-0 bg-gray-50 rounded-2xl -z-10 border border-gray-100"
-                        transition={{
-                          type: "spring",
-                          stiffness: 350,
-                          damping: 30,
-                        }}
-                      />
-                    )}
-                    <span
-                      className={`transition-colors ${isActive ? "text-black" : "text-gray-400 group-hover:text-gray-600"}`}
-                    >
-                      {item.icon}
-                    </span>
-                    {item.label}
-                    {isActive && (
-                      <motion.div
-                        layoutId="active-indicator"
-                        className="ml-auto w-1 h-1 bg-black rounded-full"
-                      />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        <div className="p-6 mt-auto border-t border-gray-50">
-          <div className="bg-gray-50/50 rounded-3xl p-4 border border-gray-100">
-            <div className="mb-4 px-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
-                Identity Verified
-              </p>
-              <p className="text-xs font-bold text-gray-900 truncate uppercase tracking-tighter">
-                Vendor Account
-              </p>
-            </div>
-            <LogoutButton />
-          </div>
-        </div>
-      </aside>
-
-      {/* --- Mobile Top Bar (Hidden on Desktop) --- */}
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b border-gray-100 z-50 flex items-center justify-between px-6">
-        <div className="flex items-center gap-2">
-          <Gift className="h-5 w-5 text-black" />
-          <span className="text-sm font-black tracking-tighter uppercase">
-            GiftVault
-          </span>
-        </div>
-        <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-[10px] font-bold">
-          VA
-        </div>
-      </header>
-
-      {/* --- Main Content Area --- */}
-      <main className="flex-1 overflow-y-auto relative scroll-smooth pt-16 lg:pt-0 pb-24 lg:pb-0">
-        {/* Background Accent */}
-        <div className="absolute top-0 right-0 w-full lg:w-[600px] h-[400px] lg:h-[600px] bg-gray-100/30 blur-[80px] lg:blur-[120px] rounded-full pointer-events-none -z-10" />
-
-        <div className="max-w-7xl mx-auto p-4 md:p-8 lg:p-12 relative z-10">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3 }}
-            >
-              {currentPage === "dashboard" && renderDashboardContent()}
-              {currentPage === "createVoucher" && renderCreateVoucherContent()}
-              {currentPage === "vouchers" && renderVouchersContent()}
-              {currentPage === "redeem" && renderRedeemContent()}
-              {currentPage === "distribution" && renderDistributionContent()}
-              {currentPage === "analytics" && renderAnalyticsContent()}
-              {currentPage === "settings" && renderSettingsContent()}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </main>
-
-      {/* --- Mobile Bottom Tab Bar (Hidden on Desktop) --- */}
-      <nav className="lg:hidden fixed bottom-6 left-4 right-4 h-16 bg-white/90 backdrop-blur-2xl border border-gray-200/50 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.1)] z-50 flex items-center justify-around px-2">
-        {navItems.slice(0, 5).map((item) => {
-          const isActive = currentPage === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => setCurrentPage(item.id)}
-              className="relative flex flex-col items-center justify-center w-12 h-12 transition-all"
-            >
-              <span className={isActive ? "text-black" : "text-gray-400"}>
-                {React.cloneElement(item.icon, { size: 20 })}
-              </span>
-              {isActive && (
-                <motion.div
-                  layoutId="mobile-dot"
-                  className="absolute -bottom-1 w-1 h-1 bg-black rounded-full"
-                />
-              )}
-            </button>
-          );
-        })}
-      </nav>
-    </div>
-  );
-  return (
-    <div className="flex h-screen bg-[#FBFBFB] text-[#1D1D1F] font-sans selection:bg-black selection:text-white overflow-hidden">
-      {/* --- Sidebar: Apple Glass Style --- */}
-      <aside className="w-64 border-r border-gray-100 bg-white flex flex-col z-50">
-        {/* Branding */}
-        <div className="p-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-black p-2 rounded-xl shadow-lg shadow-black/10 transition-transform hover:scale-105">
-              <Gift className="h-5 w-5 text-white" />
-            </div>
-            <span className="text-lg font-black tracking-tighter uppercase">
-              GiftVault
-            </span>
-          </div>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 px-4 py-4 overflow-y-auto">
-          <ul className="space-y-2">
-            {navItems.map((item) => {
-              const isActive = currentPage === item.id;
-              return (
-                <li key={item.id}>
-                  <button
-                    onClick={() => {
-                      setCurrentPage(item.id);
-                      // Preserve your reset logic
-                      if (item.id === "dashboard") setActiveTab("overview");
-                      if (item.id === "vouchers") setActiveTab("active");
-                      if (item.id === "distribution") setActiveTab("send");
-                      if (item.id === "settings") setActiveTab("general");
-                    }}
-                    className={`relative flex items-center gap-3 w-full px-4 py-3 text-[11px] font-bold uppercase tracking-[0.15em] transition-all rounded-2xl group ${
-                      isActive
-                        ? "text-black"
-                        : "text-gray-400 hover:text-gray-900"
-                    }`}
-                  >
-                    {/* The Sliding Pill Interaction */}
-                    {isActive && (
-                      <motion.div
-                        layoutId="sidebar-pill"
-                        className="absolute inset-0 bg-gray-50 rounded-2xl -z-10 border border-gray-100"
-                        transition={{
-                          type: "spring",
-                          stiffness: 350,
-                          damping: 30,
-                        }}
-                      />
-                    )}
-
-                    {/* Static Icon Rendering (Prevents Crashes) */}
-                    <span
-                      className={`transition-colors ${isActive ? "text-black" : "text-gray-400 group-hover:text-gray-600"}`}
-                    >
-                      {item.icon}
-                    </span>
-
-                    {item.label}
-
-                    {/* Active Visual Indicator */}
-                    {isActive && (
-                      <motion.div
-                        layoutId="active-indicator"
-                        className="ml-auto w-1 h-1 bg-black rounded-full"
-                      />
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </nav>
-
-        {/* Profile / Logout Card */}
-        <div className="p-6 mt-auto border-t border-gray-50">
-          <div className="bg-gray-50/50 rounded-3xl p-4 border border-gray-100">
-            <div className="mb-4 px-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-400">
-                Identity Verified
-              </p>
-              <p className="text-xs font-bold text-gray-900 truncate uppercase tracking-tighter">
-                Vendor Account
-              </p>
-            </div>
-            <LogoutButton />
-          </div>
-        </div>
-      </aside>
-
-      {/* --- Main Content Area --- */}
-      <main className="flex-1 overflow-y-auto relative scroll-smooth">
-        {/* Soft Background Accent */}
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gray-100/30 blur-[120px] rounded-full pointer-events-none -z-10" />
-
-        <div className="max-w-7xl mx-auto p-8 md:p-12 relative z-10">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentPage}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.4, ease: [0.32, 0.72, 0, 1] }}
-            >
-              {currentPage === "dashboard" && renderDashboardContent()}
-              {currentPage === "createVoucher" && renderCreateVoucherContent()}
-              {currentPage === "vouchers" && renderVouchersContent()}
-              {currentPage === "redeem" && renderRedeemContent()}
-              {currentPage === "distribution" && renderDistributionContent()}
-              {currentPage === "analytics" && renderAnalyticsContent()}
-              {currentPage === "settings" && renderSettingsContent()}
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </main>
+      <VendorDashboardSidebar
+        navItems={navItems}
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        setActiveTab={setActiveTab}
+      />
+      <VendorDashboardContent
+        currentPage={currentPage}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        vouchers={vouchers}
+        isLoading={isLoading}
+        error={error}
+        filteredVouchers={filteredVouchers}
+        selectedVoucher={selectedVoucher}
+        isViewModalOpen={isViewModalOpen}
+        isEditModalOpen={isEditModalOpen}
+        isDeleteModalOpen={isDeleteModalOpen}
+        newVoucher={newVoucher}
+        previewLogo={previewLogo}
+        redeemForm={redeemForm}
+        isRedeeming={isRedeeming}
+        userProfile={userProfile}
+        profileLoading={profileLoading}
+        profileForm={profileForm}
+        updatingProfile={updatingProfile}
+        handleViewVoucher={handleViewVoucher}
+        handleEditVoucher={handleEditVoucher}
+        handleDeleteVoucher={handleDeleteVoucher}
+        handleUpdateVoucher={handleUpdateVoucher}
+        handleCreateVoucher={handleCreateVoucher}
+        handleLogoUpload={handleLogoUpload}
+        handleEditLogoUpload={handleEditLogoUpload}
+        handleRedeem={handleRedeem}
+        handleUpdateProfile={handleUpdateProfile}
+        setNewVoucher={setNewVoucher}
+        setCurrentPage={setCurrentPage}
+        setSelectedVoucher={setSelectedVoucher}
+        setIsViewModalOpen={setIsViewModalOpen}
+        setIsEditModalOpen={setIsEditModalOpen}
+        setIsDeleteModalOpen={setIsDeleteModalOpen}
+        setRedeemForm={setRedeemForm}
+        setProfileForm={setProfileForm}
+      />
     </div>
   );
 };
