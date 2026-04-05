@@ -6,6 +6,8 @@ import {
   encryptAES,
   decryptAES,
   generateVoucherCode,
+  createQrToken,
+  decodeQrToken,
 } from "../utils/encryption.js";
 import { sendPrivateKeyEmail } from "../utils/emailService.js";
 import multer from "multer";
@@ -351,11 +353,17 @@ export const redeemVoucher = async (req, res) => {
       }
 
       const decryptedCode = decrypt(voucher.encryptedCode, rsaKeyToUse);
+      const qrToken = createQrToken({
+        voucherId: voucher._id,
+        customerEmail: req.user.email,
+        voucherCode: decryptedCode,
+      });
 
       return res.json({
         success: true,
         message:
           "Voucher code retrieved successfully. Present this code to the vendor to complete redemption.",
+        qrToken,
         voucher: {
           ...voucher.toObject(),
           decryptedCode,
@@ -466,6 +474,40 @@ export const findVoucherByCode = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || "Failed to find voucher",
+    });
+  }
+};
+
+// Decode encrypted QR payload for vendor redemption
+export const decodeQrPayload = async (req, res) => {
+  try {
+    const { qrToken } = req.body;
+
+    if (!qrToken) {
+      return res.status(400).json({
+        success: false,
+        message: "QR token is required",
+      });
+    }
+
+    const payload = decodeQrToken(qrToken);
+    if (!payload?.voucherId || !payload?.customerEmail || !payload?.voucherCode) {
+      return res.status(400).json({
+        success: false,
+        message: "QR token payload is invalid",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "QR token decoded successfully",
+      payload,
+    });
+  } catch (error) {
+    console.error("[DEBUG] QR decode error:", error);
+    res.status(400).json({
+      success: false,
+      message: "Failed to decode QR token",
     });
   }
 };

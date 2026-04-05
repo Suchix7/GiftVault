@@ -26,6 +26,8 @@ import {
   Clock,
   Users,
   Percent,
+  Camera,
+  QrCode,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { format, parseISO } from "date-fns";
@@ -35,6 +37,7 @@ import LogoutButton from "@/components/LogoutButton";
 import voucherService from "@/api/vouchers";
 import VendorDashboardSidebar from "@/components/vendor/VendorDashboardSidebar";
 import VendorDashboardContent from "@/components/vendor/VendorDashboardContent";
+import QrScannerModal from "@/components/QrScannerModal";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart,
@@ -137,6 +140,7 @@ const Vendor_Dashboard = () => {
 
   // Add new state for redeem loading
   const [isRedeeming, setIsRedeeming] = useState(false);
+  const [isQrScannerOpen, setIsQrScannerOpen] = useState(false);
 
   // Load vouchers with optimized loading state
   useEffect(() => {
@@ -465,6 +469,14 @@ const Vendor_Dashboard = () => {
     } finally {
       setIsRedeeming(false);
     }
+  };
+
+  const handleDecodeQrPayload = async (payload) => {
+    setRedeemForm({
+      email: payload.customerEmail,
+      code: payload.voucherCode,
+    });
+    toast.success("QR scanned successfully. Ready to redeem.");
   };
 
   // Handle profile update
@@ -1578,6 +1590,15 @@ const Vendor_Dashboard = () => {
                       <Ticket size={18} />
                     </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsQrScannerOpen(true)}
+                    className="w-full h-12 rounded-2xl bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg hover:bg-slate-800 transition-all"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <QrCode className="h-4 w-4" /> Scan QR to fill code
+                    </span>
+                  </button>
                 </div>
               </div>
 
@@ -2385,6 +2406,12 @@ const Vendor_Dashboard = () => {
         setIsDeleteModalOpen={setIsDeleteModalOpen}
         setRedeemForm={setRedeemForm}
         setProfileForm={setProfileForm}
+        onOpenQrScanner={() => setIsQrScannerOpen(true)}
+      />
+      <QrScannerModal
+        isOpen={isQrScannerOpen}
+        onClose={() => setIsQrScannerOpen(false)}
+        onDecoded={handleDecodeQrPayload}
       />
     </div>
   );

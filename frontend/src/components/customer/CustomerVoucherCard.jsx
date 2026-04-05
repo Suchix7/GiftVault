@@ -9,10 +9,12 @@ export default function CustomerVoucherCard({
   vendors,
   redemptionCodes,
   onRedeem,
+  onShowQr,
   formatDate,
   getRedemptionDate,
 }) {
-  const hasCode = redemptionCodes[voucher._id];
+  const redemptionData = redemptionCodes[voucher._id];
+  const hasCode = Boolean(redemptionData?.code);
   const isRedeemed = type === "redeemed";
   const isExpired = type === "expired";
 
@@ -75,11 +77,19 @@ export default function CustomerVoucherCard({
       </div>
       <div className="px-1">
         {hasCode ? (
-          <div className="bg-gray-900 rounded-2xl p-4 text-center border border-gray-800">
-            <p className="text-[8px] font-black text-gray-500 uppercase mb-1">Authorization Key</p>
-            <p className="text-white font-mono text-xl font-black tracking-[0.4em]">
-              {redemptionCodes[voucher._id]}
-            </p>
+          <div className="space-y-3">
+            <div className="bg-gray-900 rounded-2xl p-4 text-center border border-gray-800">
+              <p className="text-[8px] font-black text-gray-500 uppercase mb-1">Authorization Key</p>
+              <p className="text-white font-mono text-xl font-black tracking-[0.4em]">
+                {redemptionData?.code}
+              </p>
+            </div>
+            <Button
+              onClick={() => onShowQr?.(voucher)}
+              className="w-full h-12 md:h-14 rounded-2xl bg-white text-black text-[10px] font-black uppercase tracking-[0.2em] shadow-lg hover:bg-slate-100 flex items-center justify-center gap-2"
+            >
+              Show Encrypted QR
+            </Button>
           </div>
         ) : isRedeemed ? (
           <div className="w-full py-3 rounded-2xl bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase text-center border border-emerald-100 flex items-center justify-center gap-2">

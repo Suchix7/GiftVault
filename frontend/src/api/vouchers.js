@@ -124,6 +124,16 @@ const completeRedemption = async (data) => {
   }
 };
 
+const decodeQrPayload = async (qrToken) => {
+  try {
+    const response = await api.post(`/vouchers/decode-qr`, { qrToken });
+    return response.data;
+  } catch (error) {
+    console.error("Error decoding QR payload:", error);
+    throw error.response?.data || error;
+  }
+};
+
 // Upload image
 const uploadImage = async (formData) => {
   try {
@@ -148,6 +158,7 @@ const voucherService = {
   getActiveVouchers,
   redeemVoucher,
   findVoucherByCode,
+  decodeQrPayload,
   completeRedemption,
   uploadImage,
 };

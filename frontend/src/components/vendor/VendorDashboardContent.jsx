@@ -17,6 +17,7 @@ import {
   Users,
   Percent,
   Plus,
+  QrCode,
 } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -99,6 +100,7 @@ export default function VendorDashboardContent({
   setIsDeleteModalOpen,
   setRedeemForm,
   setProfileForm,
+  onOpenQrScanner,
 }) {
   const renderDashboardContent = () => {
     const activeCount = vouchers?.filter((v) => v?.status === "active").length || 0;
@@ -743,6 +745,19 @@ export default function VendorDashboardContent({
       <div className="text-center max-w-xl mx-auto space-y-2">
         <h1 className="text-4xl font-bold tracking-tighter text-gray-900">Redemption Hub</h1>
         <p className="text-gray-500 font-medium">Verify cryptographic codes and burn active assets in real-time.</p>
+      </div>
+
+      <div className="max-w-xl mx-auto text-center">
+        <button
+          type="button"
+          onClick={onOpenQrScanner}
+          className="inline-flex items-center justify-center gap-2 mb-4 px-6 py-3 bg-slate-900 text-white rounded-full text-xs font-black uppercase tracking-[0.3em] shadow-lg hover:bg-slate-800 transition-all"
+        >
+          <QrCode className="h-4 w-4" /> Scan QR to Fill Voucher
+        </button>
+        <p className="text-xs text-gray-400 uppercase tracking-[0.3em]">
+          Scan a customer QR to auto-fill email and cryptographic code.
+        </p>
       </div>
 
       <div className="max-w-xl w-full mx-auto">

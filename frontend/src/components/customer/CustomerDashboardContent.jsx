@@ -12,6 +12,7 @@ export default function CustomerDashboardContent({
   vendors,
   redemptionCodes,
   handleRedeemClick,
+  handleShowQr,
   currentUser,
   formatDate,
   getRedemptionDate,
@@ -69,6 +70,7 @@ export default function CustomerDashboardContent({
                 vendors={vendors}
                 redemptionCodes={redemptionCodes}
                 onRedeem={handleRedeemClick}
+                onShowQr={handleShowQr}
                 formatDate={formatDate}
                 getRedemptionDate={getRedemptionDate}
               />

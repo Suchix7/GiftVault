@@ -58,3 +58,16 @@ export const decryptAES = (encryptedObj) => {
   decrypted += decipher.final("utf8");
   return decrypted;
 };
+
+export const createQrToken = (payload) => {
+  const plaintext = JSON.stringify(payload);
+  const encrypted = encryptAES(plaintext);
+  return Buffer.from(JSON.stringify(encrypted), "utf8").toString("base64");
+};
+
+export const decodeQrToken = (token) => {
+  const decoded = Buffer.from(token, "base64").toString("utf8");
+  const encryptedObj = JSON.parse(decoded);
+  const decrypted = decryptAES(encryptedObj);
+  return JSON.parse(decrypted);
+};

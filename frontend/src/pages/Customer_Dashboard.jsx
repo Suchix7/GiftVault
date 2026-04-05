@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { History, User, Ticket } from "lucide-react";
 import api from "@/api/axios";
 import KeyVerificationModal from "@/components/OtpVerificationModal";
+import QrCodeModal from "@/components/QrCodeModal";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
@@ -17,6 +18,8 @@ export default function CustomerDashboard() {
   const [isOtpModalOpen, setIsOtpModalOpen] = useState(false);
   const [selectedVoucherForRedemption, setSelectedVoucherForRedemption] = useState(null);
   const [redemptionCodes, setRedemptionCodes] = useState({});
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+  const [qrModalData, setQrModalData] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
 
@@ -101,14 +104,40 @@ export default function CustomerDashboard() {
     setIsOtpModalOpen(true);
   };
 
-  const handleKeySuccess = (code) => {
+  const handleKeySuccess = (data) => {
     if (!selectedVoucherForRedemption) return;
 
     setRedemptionCodes((prev) => ({
       ...prev,
-      [selectedVoucherForRedemption._id]: code,
+      [selectedVoucherForRedemption._id]: {
+        code: data.code,
+        qrToken: data.qrToken,
+      },
     }));
+
+    setQrModalData({
+      voucher: {
+        ...selectedVoucherForRedemption,
+        decryptedCode: data.code,
+      },
+      qrToken: data.qrToken,
+    });
+    setIsQrModalOpen(true);
     toast.success("Redemption Key Generated");
+  };
+
+  const handleShowQr = (voucher) => {
+    const redemptionData = redemptionCodes[voucher._id];
+    if (!redemptionData) return;
+
+    setQrModalData({
+      voucher: {
+        ...voucher,
+        decryptedCode: redemptionData.code,
+      },
+      qrToken: redemptionData.qrToken,
+    });
+    setIsQrModalOpen(true);
   };
 
   // Handle profile update
@@ -167,6 +196,7 @@ export default function CustomerDashboard() {
             vendors={vendors}
             redemptionCodes={redemptionCodes}
             handleRedeemClick={handleRedeemClick}
+            handleShowQr={handleShowQr}
             currentUser={currentUser}
             formatDate={formatDate}
             getRedemptionDate={getRedemptionDate}
@@ -186,6 +216,19 @@ export default function CustomerDashboard() {
           }}
           onSuccess={handleKeySuccess}
           voucherId={selectedVoucherForRedemption?._id}
+        />
+      )}
+
+      {isQrModalOpen && qrModalData && (
+        <QrCodeModal
+          isOpen={isQrModalOpen}
+          onClose={() => {
+            setIsQrModalOpen(false);
+            setQrModalData(null);
+          }}
+          qrToken={qrModalData.qrToken}
+          voucher={qrModalData.voucher}
+          customerEmail={currentUser?.email}
         />
       )}
     </div>

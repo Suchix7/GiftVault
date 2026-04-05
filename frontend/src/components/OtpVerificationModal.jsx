@@ -44,7 +44,10 @@ export default function KeyVerificationModal({
 
             if (response.data.success) {
               toast.success("Voucher redeemed successfully");
-              onSuccess(response.data.voucher.decryptedCode);
+              onSuccess({
+                code: response.data.voucher.decryptedCode,
+                qrToken: response.data.qrToken,
+              });
               onClose();
             } else {
               toast.error(response.data.message || "Verification failed");

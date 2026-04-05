@@ -10,6 +10,7 @@ import {
   redeemVoucher,
   completeVoucherRedemption,
   findVoucherByCode,
+  decodeQrPayload,
   uploadVoucherImage,
   upload,
 } from "../controllers/voucherController.js";
@@ -34,6 +35,7 @@ router.post("/redeem/complete", protect, isVendor, completeVoucherRedemption);
 
 // Redemption routes
 router.post("/find-by-code", protect, isVendor, findVoucherByCode);
+router.post("/decode-qr", protect, isVendor, decodeQrPayload);
 
 // Customer routes
 router.get("/public/active", getAllActiveVouchers); // Get all active vouchers (public)
