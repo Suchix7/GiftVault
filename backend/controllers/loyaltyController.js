@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import LoyaltyRule from "../models/LoyaltyRuleModel.js";
 import DynamicQR from "../models/DynamicQRModel.js";
 import UserProgress from "../models/UserProgressModel.js";
+import { User } from "../models/UserModel.js";
 
 /**
  * GET /loyalty/rules/:vendorId
