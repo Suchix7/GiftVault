@@ -38,9 +38,16 @@ const getPrivateKeyEmailTemplate = (
         <p style="font-size: 16px;">Thank you for purchasing the <strong>${voucherName}</strong> voucher ${valueText}.</p>
         <div style="background-color: #ffffff; padding: 15px; border-radius: 4px; margin: 20px 0;">
           <p style="margin: 0; font-weight: bold; color: #1f2937;">Your Private Key:</p>
-          <div style="font-family: monospace; font-size: 14px; margin: 10px 0; padding: 10px; background-color: #f8fafc; border-radius: 4px;">
-            <p style="margin: 0; color: #1f2937; word-break: break-all;">${formattedKey}</p>
-            <p style="margin: 10px 0 0 0; color: #6b7280; font-size: 12px;">Copy the entire key above, including the curly braces and quotes</p>
+          <div style="font-family: 'Courier New', monospace; font-size: 13px; margin: 12px 0; padding: 14px; background-color: #f8fafc; border-radius: 4px; border: 2px solid #2563eb; user-select: all; -webkit-user-select: all; -moz-user-select: all; -ms-user-select: all;">
+            <p style="margin: 0; color: #1f2937; word-break: break-all; line-height: 1.6;">${formattedKey}</p>
+          </div>
+          <div style="background-color: #eff6ff; padding: 12px; border-radius: 4px; border-left: 4px solid #2563eb; margin-top: 12px;">
+            <p style="margin: 0; font-weight: 600; font-size: 13px; color: #1e40af;">📋 To Copy This Key:</p>
+            <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size: 12px; color: #1e40af;">
+              <li>Triple-click the key above to select all text</li>
+              <li>Press <strong>Ctrl+C</strong> (Windows) or <strong>Cmd+C</strong> (Mac)</li>
+              <li>Paste when redeeming your voucher</li>
+            </ol>
           </div>
         </div>
         <p style="font-size: 14px; color: #6b7280;">Please keep this private key safe. You will need it to redeem your voucher.</p>
