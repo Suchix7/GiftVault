@@ -58,6 +58,35 @@ const getPrivateKeyEmailTemplate = (
   `;
 };
 
+// Email template for password reset
+const getPasswordResetEmailTemplate = (userName, resetCode) => {
+  return `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <h2 style="color: #2563eb; text-align: center;">GiftVault Password Reset</h2>
+      <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px;">
+        <p style="font-size: 16px;">Hello ${userName},</p>
+        <p style="font-size: 16px;">You have requested to reset your password for your GiftVault account.</p>
+        <div style="background-color: #ffffff; padding: 15px; border-radius: 4px; margin: 20px 0; text-align: center;">
+          <p style="margin: 0; font-weight: bold; color: #1f2937; font-size: 18px;">Your Reset Code:</p>
+          <div style="font-family: monospace; font-size: 24px; font-weight: bold; margin: 15px 0; padding: 15px; background-color: #f8fafc; border-radius: 4px; color: #2563eb; letter-spacing: 3px;">
+            ${resetCode}
+          </div>
+        </div>
+        <p style="font-size: 14px; color: #6b7280;">This code will expire in 5 minutes for security reasons.</p>
+        <p style="font-size: 14px; color: #ef4444; font-weight: bold;">Important:</p>
+        <ul style="font-size: 14px; color: #6b7280;">
+          <li>Do not share this code with anyone</li>
+          <li>The code is valid for only 5 minutes</li>
+          <li>If you didn't request this reset, please ignore this email</li>
+        </ul>
+      </div>
+      <p style="text-align: center; color: #6b7280; font-size: 12px; margin-top: 20px;">
+        © ${new Date().getFullYear()} GiftVault. All rights reserved.
+      </p>
+    </div>
+  `;
+};
+
 // Send private key email
 export const sendPrivateKeyEmail = async (
   customerEmail,
@@ -93,5 +122,30 @@ export const sendPrivateKeyEmail = async (
   } catch (error) {
     console.error("[Email] Error sending private key email:", error);
     throw new Error("Failed to send private key email");
+  }
+};
+
+// Send password reset email
+export const sendPasswordResetEmail = async (email, userName, resetCode) => {
+  try {
+    // Verify email configuration
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+      throw new Error("Email service not configured");
+    }
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "GiftVault - Password Reset Code",
+      html: getPasswordResetEmailTemplate(userName, resetCode),
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log("[Email] Password reset email sent successfully to:", email);
+
+    return true;
+  } catch (error) {
+    console.error("[Email] Error sending password reset email:", error);
+    throw new Error("Failed to send password reset email");
   }
 };

@@ -1,8 +1,10 @@
 import express from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/UserModel.js";
+import OTP from "../models/OtpModel.js";
 import { JWT_SECRET } from "../config.js";
 import { protect } from "../middleware/authMiddleware.js";
+import { sendPasswordResetEmail } from "../utils/emailService.js";
 const router = express.Router();
 
 const generateToken = (id) => {
@@ -95,6 +97,132 @@ router.post("/logout", (req, res) => {
       sameSite: "strict",
     })
     .sendStatus(200);
+});
+
+// Forgot password endpoint
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Don't reveal if email exists or not for security
+      return res.json({ message: "If the email exists, a reset link has been sent" });
+    }
+
+    // Generate reset token (OTP)
+    const resetToken = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save OTP in database
+    await OTP.create({
+      userId: user._id,
+      email: user.email,
+      otp: resetToken,
+    });
+
+    // Send reset email
+    await sendPasswordResetEmail(user.email, user.name, resetToken);
+
+    res.json({ message: "If the email exists, a reset link has been sent" });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+    res.status(500).json({ message: "Failed to process request" });
+  }
+});
+
+// Verify reset code endpoint
+router.post("/verify-reset-code", async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({ message: "Email and reset code are required" });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid reset request" });
+    }
+
+    const otpDoc = await OTP.findOne({
+      userId: user._id,
+      email: user.email,
+      verified: false,
+    }).sort({ createdAt: -1 });
+
+    if (!otpDoc) {
+      return res.status(400).json({ message: "Invalid or expired reset code" });
+    }
+
+    const isValidOTP = await otpDoc.verifyOTP(otp);
+    if (!isValidOTP) {
+      otpDoc.attempts += 1;
+      await otpDoc.save();
+
+      if (otpDoc.attempts >= 3) {
+        await OTP.deleteMany({ userId: user._id, email: user.email, verified: false });
+        return res.status(400).json({ message: "Too many failed attempts. Request a new reset code." });
+      }
+
+      return res.status(400).json({ message: "Invalid reset code" });
+    }
+
+    otpDoc.verified = true;
+    await otpDoc.save();
+
+    return res.json({ message: "Reset code verified" });
+  } catch (error) {
+    console.error("Verify reset code error:", error);
+    res.status(500).json({ message: "Failed to verify reset code" });
+  }
+});
+
+// Reset password endpoint
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { email, newPassword } = req.body;
+
+    if (!email || !newPassword) {
+      return res.status(400).json({ message: "Email and new password are required" });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    // Find user
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ message: "Invalid reset request" });
+    }
+
+    // Find a verified OTP document
+    const otpDoc = await OTP.findOne({
+      userId: user._id,
+      email: user.email,
+      verified: true,
+    }).sort({ createdAt: -1 });
+
+    if (!otpDoc) {
+      return res.status(400).json({ message: "Reset code not verified. Please verify the code first." });
+    }
+
+    // Update password
+    user.password = newPassword;
+    await user.save();
+
+    // Clean up verified and unverified OTPs for this user
+    await OTP.deleteMany({ userId: user._id, email: user.email });
+
+    res.json({ message: "Password reset successfully" });
+  } catch (error) {
+    console.error("Reset password error:", error);
+    res.status(500).json({ message: "Failed to reset password" });
+  }
 });
 
 export default router;
