@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Gift } from "lucide-react";
+import { Gift, Zap } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import React from "react";
 
@@ -8,6 +8,7 @@ export default function CustomerDashboardSidebar({
   setActiveView,
   currentUser,
   navItems,
+  globalTotalPoints = 0,
 }) {
   return (
     <>
@@ -54,13 +55,20 @@ export default function CustomerDashboardSidebar({
         </div>
       </aside>
 
-      <header className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white/80 backdrop-blur-xl border-b border-gray-100 z-50 flex items-center justify-between px-6 font-black uppercase tracking-tighter">
-        <div className="flex items-center gap-2">
+      <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-white/80 backdrop-blur-xl border-b border-gray-100 z-50 flex items-center justify-between px-6 lg:px-10 font-black uppercase tracking-tighter">
+        <div className="flex items-center gap-2 lg:hidden">
           <Gift size={18} />
           <span>GiftVault</span>
         </div>
-        <div className="text-[10px] bg-black text-white px-2 py-0.5 rounded-full">
-          {currentUser?.bonusPoints} PTS
+        <div className="hidden lg:block text-xs text-gray-500">
+          Global Wallet
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-gray-400 font-bold hidden lg:inline">TOTAL LOYALTY POINTS</span>
+          <div className="text-[10px] lg:text-xs bg-black text-white px-3 py-1 lg:py-1.5 rounded-full shadow-md flex items-center gap-1.5">
+            <Zap size={12} className="text-yellow-400" />
+            <span>{globalTotalPoints} PTS</span>
+          </div>
         </div>
       </header>
 

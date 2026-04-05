@@ -3,11 +3,13 @@ import { History, User, Ticket } from "lucide-react";
 import api from "@/api/axios";
 import KeyVerificationModal from "@/components/OtpVerificationModal";
 import QrCodeModal from "@/components/QrCodeModal";
+import QrScannerModal from "@/components/QrScannerModal";
 import { toast } from "sonner";
 import { AnimatePresence } from "framer-motion";
 import { format } from "date-fns";
 import CustomerDashboardSidebar from "@/components/customer/CustomerDashboardSidebar";
 import CustomerDashboardContent from "@/components/customer/CustomerDashboardContent";
+import loyaltyAPI from "@/api/loyalty";
 
 export default function CustomerDashboard() {
   const [activeView, setActiveView] = useState("vouchers");
@@ -22,6 +24,8 @@ export default function CustomerDashboard() {
   const [qrModalData, setQrModalData] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
+  const [loyaltyPrograms, setLoyaltyPrograms] = useState({});
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Profile form state
   const [profileForm, setProfileForm] = useState({
@@ -51,10 +55,32 @@ export default function CustomerDashboard() {
         });
 
         const vendorMap = {};
-        (vendorRes.data.users || []).forEach((v) => {
+        const vendors = vendorRes.data.users || [];
+        vendors.forEach((v) => {
           vendorMap[v._id] = v.name;
         });
         setVendors(vendorMap);
+
+        // Fetch loyalty programs for each vendor
+        const loyaltyMap = {};
+        for (const vendor of vendors) {
+          try {
+            const loyaltyRes = await loyaltyAPI.getUserProgress(
+              userRes.data.user._id,
+              vendor._id
+            );
+            if (loyaltyRes.success) {
+              loyaltyMap[vendor._id] = {
+                vendorName: vendor.name,
+                ...loyaltyRes.data,
+              };
+            }
+          } catch (err) {
+            // Vendor might not have loyalty program set up
+            console.log(`No loyalty program for vendor ${vendor._id}`);
+          }
+        }
+        setLoyaltyPrograms(loyaltyMap);
       } catch (error) {
         toast.error("Protocol Sync Failed");
       } finally {
@@ -65,6 +91,41 @@ export default function CustomerDashboard() {
 
     fetchData();
   }, []);
+
+  const refreshLoyaltyPrograms = async () => {
+    const loyaltyMap = {};
+    for (const vendorId of Object.keys(vendors)) {
+      try {
+        const loyaltyRes = await loyaltyAPI.getUserProgress(currentUser._id, vendorId);
+        if (loyaltyRes.success) {
+          loyaltyMap[vendorId] = {
+            vendorName: vendors[vendorId],
+            ...loyaltyRes.data,
+          };
+        }
+      } catch (err) {
+        // Vendor might not have loyalty program set up
+      }
+    }
+    setLoyaltyPrograms(loyaltyMap);
+  };
+
+  const handleScannerDecoded = async (data) => {
+    if (data.type === "dynamic_loyalty") {
+      try {
+        const res = await loyaltyAPI.verifyQRToken(data.token, currentUser._id);
+        if (res.success) {
+          toast.success(res.message || "Points earned successfully!");
+          if (res.data?.rewardEarned) {
+             toast.success("Congratulations! You earned a reward!");
+          }
+          await refreshLoyaltyPrograms();
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Failed to redeem QR code");
+      }
+    }
+  };
 
   const formatDate = (dateString) =>
     dateString ? format(new Date(dateString), "MMM dd, yyyy") : "N/A";
@@ -168,10 +229,16 @@ export default function CustomerDashboard() {
   }
 
   const navItems = [
+    { id: "loyalty", label: "Loyalty Cards", icon: <Ticket size={18} /> },
     { id: "vouchers", label: "My Assets", icon: <Ticket size={18} /> },
     { id: "history", label: "Ledger", icon: <History size={18} /> },
     { id: "profile", label: "Identity", icon: <User size={18} /> },
   ];
+
+  const globalTotalPoints = Object.values(loyaltyPrograms).reduce(
+    (sum, program) => sum + (program.progress?.totalPoints || 0),
+    0
+  );
 
   return (
     <div className="flex h-screen bg-[#FBFBFB] text-[#1D1D1F] font-sans overflow-hidden relative">
@@ -180,9 +247,10 @@ export default function CustomerDashboard() {
         setActiveView={setActiveView}
         currentUser={currentUser}
         navItems={navItems}
+        globalTotalPoints={globalTotalPoints}
       />
 
-      <main className="flex-1 overflow-y-auto relative scroll-smooth pt-20 lg:pt-0 pb-28 lg:pb-0">
+      <main className="flex-1 overflow-y-auto relative scroll-smooth pt-20 lg:pt-20 pb-28 lg:pb-0">
         <div className="absolute top-0 right-0 w-full lg:w-[600px] h-[400px] lg:h-[600px] bg-gray-100/30 blur-[80px] lg:blur-[120px] rounded-full pointer-events-none -z-10" />
 
         <AnimatePresence mode="wait">
@@ -204,6 +272,9 @@ export default function CustomerDashboard() {
             updatingProfile={updatingProfile}
             handleUpdateProfile={handleUpdateProfile}
             setProfileForm={setProfileForm}
+            loyaltyPrograms={loyaltyPrograms}
+            setLoyaltyPrograms={setLoyaltyPrograms}
+            handleOpenScanner={() => setIsScannerOpen(true)}
           />
         </AnimatePresence>
       </main>
@@ -229,6 +300,14 @@ export default function CustomerDashboard() {
           qrToken={qrModalData.qrToken}
           voucher={qrModalData.voucher}
           customerEmail={currentUser?.email}
+        />
+      )}
+
+      {isScannerOpen && (
+        <QrScannerModal
+          isOpen={isScannerOpen}
+          onClose={() => setIsScannerOpen(false)}
+          onDecoded={handleScannerDecoded}
         />
       )}
     </div>

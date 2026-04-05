@@ -14,6 +14,7 @@ import Admin_Dashboard from "./pages/Admin_Dashboard";
 import Forbidden from "./pages/Forbidden";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Admin_Dashboards from "./pages/Admin_Dashboard copy";
+import QRVerificationPage from "./pages/QRVerificationPage";
 import { Toaster } from "sonner";
 import Customer_Dashboards from "./pages/Customer_Dashboard_copy";
 
@@ -58,6 +59,7 @@ const App = () => {
         />
         <Route path="/customer" element={<Customer_Dashboards />}></Route>
         <Route path="/vendor" element={<Vendor_Dashboards />}></Route>
+        <Route path="/verify" element={<QRVerificationPage />} />
         <Route path="/forbidden" element={<Forbidden />} />
       </Routes>
       <Toaster />

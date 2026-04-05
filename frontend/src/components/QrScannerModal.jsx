@@ -88,6 +88,34 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded }) {
 
   const decodeToken = async (qrToken) => {
     try {
+      // Direct pass-through for unencrypted JSON payloads or simple strings
+      // Format: loyalty-reward|userId|vendorId
+      if (qrToken && typeof qrToken === "string" && qrToken.startsWith("loyalty-reward|")) {
+        const parts = qrToken.split("|");
+        if (parts.length === 3) {
+          onDecoded({
+            type: "loyalty_reward",
+            userId: parts[1],
+            vendorId: parts[2],
+          });
+          onClose();
+          return;
+        }
+      }
+
+      // Format: dynamic-loyalty|token
+      if (qrToken && typeof qrToken === "string" && qrToken.startsWith("dynamic-loyalty|")) {
+        const parts = qrToken.split("|");
+        if (parts.length === 2) {
+          onDecoded({
+            type: "dynamic_loyalty",
+            token: parts[1],
+          });
+          onClose();
+          return;
+        }
+      }
+
       const response = await api.post("/vouchers/decode-qr", { qrToken });
       if (response.data?.success && response.data.payload) {
         onDecoded(response.data.payload);

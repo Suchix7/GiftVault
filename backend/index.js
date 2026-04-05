@@ -9,6 +9,7 @@ import voucherRoutes from "./routes/voucherRoute.js";
 import otpRoutes from "./routes/otpRoutes.js";
 import authRoute from "./routes/authRoute.js";
 import booksRoute from "./routes/booksRoute.js";
+import loyaltyRoute from "./routes/loyaltyRoute.js";
 import connectDB from "./config/db.js";
 
 // Debug environment variables
@@ -46,6 +47,7 @@ app.use("/api/auth", authRoute);
 app.use("/api/users", userRoute);
 app.use("/api/vouchers", voucherRoutes);
 app.use("/api/otp", otpRoutes);
+app.use("/api/loyalty", loyaltyRoute);
 app.use("/books", booksRoute); // Consider updating this to use /api prefix
 
 // Welcome route

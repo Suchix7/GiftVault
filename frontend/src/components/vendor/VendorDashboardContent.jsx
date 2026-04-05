@@ -33,6 +33,9 @@ import {
   Cell,
 } from "recharts";
 
+import VendorLoyaltySettings from "@/components/loyalty/VendorLoyaltySettings";
+import VendorQRGenerator from "@/components/loyalty/VendorQRGenerator";
+
 const LocalStatusBadge = ({ status }) => {
   const styles = {
     active: "bg-emerald-50 text-emerald-600 border-emerald-100",
@@ -1079,6 +1082,53 @@ export default function VendorDashboardContent({
     );
   };
 
+  const renderLoyaltyContent = () => {
+    if (!userProfile) {
+      return (
+        <div className="h-[60vh] flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+          <div className="w-8 h-8 border-4 border-gray-100 border-t-black rounded-full animate-spin mr-3" />
+          Loading Profile...
+        </div>
+      );
+    }
+
+    return (
+      <motion.div
+        className="pb-20"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <VendorLoyaltySettings 
+          vendorId={userProfile._id} 
+          userId={userProfile._id}
+        />
+      </motion.div>
+    );
+  };
+
+  const renderQrGeneratorContent = () => {
+    if (!userProfile) {
+      return (
+        <div className="h-[60vh] flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+          <div className="w-8 h-8 border-4 border-gray-100 border-t-black rounded-full animate-spin mr-3" />
+          Loading Profile...
+        </div>
+      );
+    }
+
+    return (
+      <motion.div
+        className="pb-20"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
+        <VendorQRGenerator vendorId={userProfile._id} />
+      </motion.div>
+    );
+  };
+
   return (
     <div className="flex-1 overflow-y-auto relative scroll-smooth pt-16 lg:pt-0 pb-24 lg:pb-0">
       <div className="absolute top-0 right-0 w-full lg:w-[600px] h-[400px] lg:h-[600px] bg-gray-100/30 blur-[80px] lg:blur-[120px] rounded-full pointer-events-none -z-10" />
@@ -1089,6 +1139,8 @@ export default function VendorDashboardContent({
             {currentPage === "createVoucher" && renderCreateVoucherContent()}
             {currentPage === "vouchers" && renderVouchersContent()}
             {currentPage === "redeem" && renderRedeemContent()}
+            {currentPage === "loyalty" && renderLoyaltyContent()}
+            {currentPage === "qr_generator" && renderQrGeneratorContent()}
             {currentPage === "distribution" && renderDistributionContent()}
             {currentPage === "analytics" && renderAnalyticsContent()}
             {currentPage === "settings" && renderSettingsContent()}

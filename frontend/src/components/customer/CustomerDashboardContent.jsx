@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, User } from "lucide-react";
+import { ShieldCheck, User, Camera, QrCode } from "lucide-react";
 import CustomerVoucherCard from "@/components/customer/CustomerVoucherCard";
+import DynamicStampCard from "@/components/loyalty/DynamicStampCard";
 
 export default function CustomerDashboardContent({
   activeView,
@@ -20,6 +21,9 @@ export default function CustomerDashboardContent({
   updatingProfile,
   handleUpdateProfile,
   setProfileForm,
+  loyaltyPrograms = {},
+  setLoyaltyPrograms = () => {},
+  handleOpenScanner = () => {},
 }) {
   const vouchersToShow =
     activeTab === "active"
@@ -220,6 +224,100 @@ export default function CustomerDashboardContent({
               </div>
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {activeView === "loyalty" && (
+        <motion.div
+          key="loyalty"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="space-y-8 md:space-y-10"
+        >
+          <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-black tracking-tighter">
+                Loyalty Cards
+              </h1>
+              <p className="text-gray-500 font-medium text-xs md:text-sm">
+                Track your rewards and stamp cards across your favorite vendors.
+              </p>
+            </div>
+            
+            <button
+              onClick={handleOpenScanner}
+              className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all active:scale-95 whitespace-nowrap w-fit shrink-0"
+            >
+              <QrCode className="w-5 h-5 text-[#f5f5f7]" />
+              Scan QR for Points
+            </button>
+          </div>
+
+          {Object.entries(loyaltyPrograms).filter(
+            ([_, programData]) => programData.progress?.totalPoints > 0
+          ).length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+              {Object.entries(loyaltyPrograms)
+                .filter(([_, programData]) => programData.progress?.totalPoints > 0)
+                .map(([vendorId, programData]) => (
+                <DynamicStampCard
+                  key={vendorId}
+                  vendorId={vendorId}
+                  userId={currentUser?._id}
+                  vendorName={programData.vendorName}
+                  progress={programData.progress}
+                  rules={programData.rules}
+                  onClaimReward={async () => {
+                    // We DO NOT call claimReward here anymore!
+                    // The customer shows the QR to the Vendor. The Vendor scans it and calls claimReward.
+                    // This function is now just a callback to "Refresh My Data" after closing the QR modal.
+                    const loyaltyAPI = (await import("@/api/loyalty")).default;
+                    
+                    const updated = await loyaltyAPI.getUserProgress(
+                      currentUser._id,
+                      vendorId
+                    );
+                    if (updated.success) {
+                      setLoyaltyPrograms((prev) => ({
+                        ...prev,
+                        [vendorId]: {
+                          ...prev[vendorId],
+                          ...updated.data,
+                        },
+                      }));
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 px-4">
+              <div className="text-center max-w-md">
+                <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <svg
+                    className="w-12 h-12 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M12 6v6m0 0v6m0-6h6m0 0h6m-6-6H6m0 0H0"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                  No Loyalty Programs Yet
+                </h3>
+                <p className="text-gray-600 text-sm">
+                  Vendors you shop from will offer loyalty cards here. Start collecting stamps!
+                </p>
+              </div>
+            </div>
+          )}
         </motion.div>
       )}
     </div>

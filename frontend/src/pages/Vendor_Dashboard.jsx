@@ -38,6 +38,8 @@ import voucherService from "@/api/vouchers";
 import VendorDashboardSidebar from "@/components/vendor/VendorDashboardSidebar";
 import VendorDashboardContent from "@/components/vendor/VendorDashboardContent";
 import QrScannerModal from "@/components/QrScannerModal";
+import VendorLoyaltySettings from "@/components/loyalty/VendorLoyaltySettings";
+import VendorQRGenerator from "@/components/loyalty/VendorQRGenerator";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart,
@@ -107,6 +109,16 @@ const Vendor_Dashboard = () => {
     },
     { id: "vouchers", label: "Vouchers", icon: <Gift className="h-5 w-5" /> },
     { id: "redeem", label: "Redeem", icon: <Ticket className="h-5 w-5" /> },
+    {
+      id: "loyalty",
+      label: "Loyalty",
+      icon: <Zap className="h-5 w-5" />,
+    },
+    {
+      id: "qr_generator",
+      label: "Gen QR",
+      icon: <QrCode className="h-5 w-5" />,
+    },
     // Commenting out distribution tab for now
     // {
     //   id: "distribution",
@@ -472,6 +484,23 @@ const Vendor_Dashboard = () => {
   };
 
   const handleDecodeQrPayload = async (payload) => {
+    if (payload.type === "loyalty_reward") {
+      try {
+        setIsRedeeming(true);
+        const loyaltyAPI = (await import("@/api/loyalty")).default;
+        const result = await loyaltyAPI.claimReward(payload.userId, payload.vendorId);
+        
+        if (result.success) {
+          toast.success("Loyalty reward claimed successfully! Customer stamps have been reset.");
+        }
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Failed to claim reward");
+      } finally {
+        setIsRedeeming(false);
+      }
+      return;
+    }
+
     setRedeemForm({
       email: payload.customerEmail,
       code: payload.voucherCode,
@@ -2336,26 +2365,7 @@ const Vendor_Dashboard = () => {
     );
   };
 
-  const renderContent = () => {
-    switch (currentPage) {
-      case "dashboard":
-        return renderDashboardContent();
-      case "createVoucher":
-        return renderCreateVoucherContent();
-      case "vouchers":
-        return renderVouchersContent();
-      case "redeem":
-        return renderRedeemContent();
-      case "distribution":
-        return renderDistributionContent();
-      case "analytics":
-        return renderAnalyticsContent();
-      case "settings":
-        return renderSettingsContent();
-      default:
-        return renderDashboardContent();
-    }
-  };
+
 
   return (
     <div className="flex h-screen bg-[#FBFBFB] text-[#1D1D1F] font-sans selection:bg-black selection:text-white overflow-hidden">
