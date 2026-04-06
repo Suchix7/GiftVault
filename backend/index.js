@@ -19,6 +19,7 @@ console.log("[Config] EMAIL_PASSWORD exists:", !!process.env.EMAIL_PASSWORD);
 console.log("[Config] MONGODB_URI exists:", !!process.env.MONGODB_URI);
 
 const app = express();
+const HOST = '0.0.0.0'; 
 
 // Middleware
 app.use(express.json());
@@ -29,18 +30,48 @@ app.use(cookieParser());
 app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // CORS configuration
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5179",
-      "http://localhost:5178",
-    ],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
-  }),
-);
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5179",
+  "http://localhost:5178",
+  "http://localhost:5555",
+  "http://172.16.50.11:5173",
+  "https://172.16.30.237:5173",
+  "http://172.16.30.237:5173",
+  "http://192.168.120.140:5555",
+  "https://kenny-erubescent-contumely.ngrok-free.dev",
+  "https://bpsxm4qr-5555.inc1.devtunnels.ms"
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS origin denied"));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  optionsSuccessStatus: 204,
+};
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.includes(origin)) {
+    res.header("Access-Control-Allow-Origin", origin);
+    res.header("Access-Control-Allow-Credentials", "true");
+    res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  }
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
 // API Routes
 app.use("/api/auth", authRoute);
@@ -68,8 +99,9 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    app.listen(PORT,HOST, () => {
       console.log(`Server running on port ${PORT} (http://localhost:${PORT})`);
+      console.log(`Accessible on your network at http://<YOUR_IP>:${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);

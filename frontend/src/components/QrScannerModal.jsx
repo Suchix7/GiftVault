@@ -12,69 +12,117 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded, hideManualI
   const [error, setError] = useState("");
   const [isScanning, setIsScanning] = useState(false);
   const [manualToken, setManualToken] = useState("");
-  const [cameraRestartKey, setCameraRestartKey] = useState(0);
+  const streamRef = useRef(null);
+  const [cameraSupported, setCameraSupported] = useState(true);
+  const [cameraPermission, setCameraPermission] = useState("prompt");
+
+  const isSecureOrigin =
+    typeof window !== "undefined" &&
+    (window.isSecureContext ||
+      window.location.hostname === "localhost" ||
+      window.location.hostname === "127.0.0.1");
+
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+  };
+
+  const scanFrame = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState !== 4) {
+      frameRef.current = requestAnimationFrame(scanFrame);
+      return;
+    }
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    if (code?.data) {
+      handleScan(code.data);
+    } else {
+      frameRef.current = requestAnimationFrame(scanFrame);
+    }
+  };
+
+  const requestCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Camera is not supported on this device.");
+    }
+    if (!isSecureOrigin) {
+      throw new Error("Insecure origin. Camera access requires HTTPS or localhost access.");
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
+    } catch (firstError) {
+      console.warn("Environment camera failed, falling back to any camera.", firstError);
+      return await navigator.mediaDevices.getUserMedia({ video: true });
+    }
+  };
+
+  const startCamera = async () => {
+    try {
+      stopCamera();
+      setError("");
+      setCameraSupported(true);
+      setIsScanning(true);
+      const streamResult = await requestCamera();
+      streamRef.current = streamResult;
+      if (videoRef.current) {
+        videoRef.current.srcObject = streamRef.current;
+        await videoRef.current.play();
+      }
+      frameRef.current = requestAnimationFrame(scanFrame);
+    } catch (err) {
+      console.error("Camera access failed:", err);
+      const message =
+        err.message === "Insecure origin. Camera access requires HTTPS or localhost access."
+          ? "Camera access requires HTTPS or localhost. Open this app over https:// or use localhost."
+          : err.name === "NotAllowedError" || err.name === "PermissionDeniedError"
+          ? "Camera permission denied. Please allow camera access in your browser settings."
+          : err.name === "NotFoundError"
+          ? "No camera found on this device."
+          : "Unable to access camera. Use image upload or paste token instead.";
+      setError(message);
+      setCameraSupported(!!navigator.mediaDevices?.getUserMedia);
+      setIsScanning(false);
+    }
+  };
+
+  const checkPermission = async () => {
+    if (navigator.permissions && navigator.permissions.query) {
+      try {
+        const status = await navigator.permissions.query({ name: "camera" });
+        setCameraPermission(status.state);
+        status.onchange = () => setCameraPermission(status.state);
+      } catch (err) {
+        console.warn("Camera permission query not supported", err);
+      }
+    }
+  };
 
   useEffect(() => {
-    let stream;
-    let active = true;
-
-    const stopCamera = () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-        stream = null;
-      }
-    };
-
-    const scanFrame = () => {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      if (!active || !video || !canvas || video.readyState !== 4) {
-        frameRef.current = requestAnimationFrame(scanFrame);
-        return;
-      }
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height);
-      if (code?.data) {
-        handleScan(code.data);
-      } else {
-        frameRef.current = requestAnimationFrame(scanFrame);
-      }
-    };
-
-    const startCamera = async () => {
-      try {
-        stopCamera();
-        setError("");
-        setIsScanning(true);
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-        frameRef.current = requestAnimationFrame(scanFrame);
-      } catch (err) {
-        console.error("Camera access failed:", err);
-        setError("Unable to access camera. Use image upload or paste token instead.");
-        setIsScanning(false);
-      }
-    };
-
     if (isOpen) {
-      startCamera();
+      checkPermission();
     }
 
     return () => {
-      active = false;
       if (frameRef.current) cancelAnimationFrame(frameRef.current);
       stopCamera();
     };
-  }, [isOpen, cameraRestartKey]);
+  }, [isOpen]);
 
   const handleScan = async (rawValue) => {
     if (!rawValue) return;
@@ -247,7 +295,7 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded, hideManualI
           onClick={onClose}
         >
           <motion.div
-            className="bg-white rounded-[2rem] p-6 w-full max-w-2xl shadow-2xl relative"
+            className="bg-white rounded-[2rem] p-4 sm:p-6 w-full max-w-[44rem] max-h-[calc(100vh-1.5rem)] overflow-y-auto shadow-2xl relative"
             initial={{ scale: 0.96, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.96, opacity: 0 }}
@@ -267,25 +315,30 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded, hideManualI
               </p>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+            <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
               <div className="space-y-4">
-                <div className="bg-slate-100 rounded-3xl overflow-hidden border border-slate-200">
+                <div className="bg-slate-100 rounded-3xl overflow-hidden border border-slate-200 aspect-[4/3] min-h-[220px]">
                   <video
                     ref={videoRef}
-                    className="w-full h-72 object-cover"
+                    className="w-full h-full object-cover"
                     muted
                     playsInline
+                    autoPlay
                   />
                 </div>
                 <div className="flex flex-col gap-3">
-                  <div className="flex items-center gap-3">
-                    <Button type="button" onClick={() => {
-                      setError("");
-                      setCameraRestartKey((prev) => prev + 1);
-                    }}>
-                      Restart Scan
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <Button
+                      type="button"
+                      className="w-full sm:w-auto"
+                      onClick={async () => {
+                        setError("");
+                        await startCamera();
+                      }}
+                    >
+                      {isScanning ? "Restart Scan" : "Open Camera"}
                     </Button>
-                    <label className="inline-flex items-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-2xl cursor-pointer">
+                    <label className="inline-flex items-center justify-center gap-2 px-4 py-3 bg-slate-900 text-white rounded-2xl cursor-pointer w-full sm:w-auto">
                       <Upload className="h-4 w-4" /> Upload Image
                       <input
                         type="file"
@@ -295,17 +348,31 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded, hideManualI
                       />
                     </label>
                   </div>
+                  <div className="space-y-1 text-sm text-slate-600">
+                    <p className="font-semibold">Camera status</p>
+                    <p>
+                      {isScanning
+                        ? "Scanning using your device camera."
+                        : "Tap Open Camera to request access and start scanning."}
+                    </p>
+                    <p className="text-slate-500">Permission state: {cameraPermission}</p>
+                    <p className="text-slate-500">Camera support: {cameraSupported ? "Supported" : "Not supported"}</p>
+                  </div>
                   {error && <p className="text-sm text-rose-600">{error}</p>}
                 </div>
               </div>
 
               <div className="space-y-4">
-                <div className="bg-slate-950 text-white rounded-3xl p-5 min-h-[18rem] flex flex-col justify-between">
+                <div className="bg-slate-950 text-white rounded-3xl p-5 min-h-[16rem] flex flex-col justify-between">
                   <div>
                     <p className="text-sm uppercase tracking-[0.3em] text-slate-400 mb-3">Scanner Status</p>
-                    <p className="text-2xl font-bold">{isScanning ? "Scanning..." : "Ready"}</p>
+                    <p className="text-2xl font-bold">{isScanning ? "Scanning..." : error ? "Camera paused" : "Ready"}</p>
                     <p className="mt-3 text-sm text-slate-400">
-                      {isScanning ? "Point the camera at the QR code." : "If the camera cannot be accessed, upload a QR image or paste the token."}
+                      {isScanning
+                        ? "Point the camera at the QR code."
+                        : error
+                        ? "Please resolve the camera access issue or use upload/paste." 
+                        : "If the camera cannot be accessed, upload a QR image or paste the token."}
                     </p>
                   </div>
                   <div className="space-y-4">
