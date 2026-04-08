@@ -31,12 +31,13 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // CORS configuration
 const allowedOrigins = [
-  "http://localhost:5173",
+  "https://localhost:5173",
   "http://localhost:5179",
   "http://localhost:5178",
   "http://localhost:5555",
   "http://172.16.50.11:5173",
   "https://172.16.30.237:5173",
+  "https://192.168.120.140:5173",
   "http://172.16.30.237:5173",
   "http://192.168.120.140:5555",
   "https://kenny-erubescent-contumely.ngrok-free.dev",
