@@ -14,6 +14,7 @@ export default function CustomerVoucherCard({
   getRedemptionDate,
   currentUser,
   userPoints: propUserPoints,
+  vendorName,
 }) {
   const redemptionData = redemptionCodes[voucher._id];
   const hasCode = Boolean(redemptionData?.code);
@@ -31,10 +32,10 @@ export default function CustomerVoucherCard({
       className="flex flex-col gap-4"
     >
       <div
-        className="w-full aspect-[1.6/1] rounded-[2rem] md:rounded-[2.5rem] shadow-xl relative overflow-hidden group"
+        className="w-full rounded-[2rem] md:rounded-[2.5rem] shadow-xl relative overflow-hidden group"
         style={{ backgroundColor: voucher.color || "#1e293b" }}
       >
-        <div className="absolute inset-2 md:inset-3 bg-black/10 backdrop-blur-md rounded-[1.8rem] md:rounded-[2rem] border border-white/10 p-5 md:p-8 flex flex-col justify-between z-10 overflow-hidden">
+        <div className="relative m-2 md:m-3 bg-black/10 backdrop-blur-md rounded-[1.8rem] md:rounded-[2rem] border border-white/10 p-5 md:p-8 flex flex-col gap-4 z-10">
           <div className="flex justify-between items-start">
             <div className="h-10 w-10 md:h-12 md:w-12 bg-white/90 rounded-xl p-2 flex items-center justify-center shadow-lg">
               {voucher.logo ? (
@@ -48,7 +49,7 @@ export default function CustomerVoucherCard({
                 Secure Asset
               </p>
               <p className="text-[9px] md:text-[10px] font-bold text-white uppercase truncate max-w-[80px] md:max-w-[100px]">
-                {vendors[voucher.vendorId] || "Verified Partner"}
+                {vendorName || voucher.vendor?.name || vendors[voucher.vendorId] || vendors[String(voucher.vendorId?._id || "")] || "Verified Partner"}
               </p>
             </div>
           </div>
@@ -60,7 +61,7 @@ export default function CustomerVoucherCard({
               {voucher.description || "Digital voucher asset reserved for holder."}
             </p>
           </div>
-          <div className="flex justify-between items-end border-t border-white/10 pt-3 md:pt-4">
+          <div className="flex justify-between items-end border-t border-white/10 pt-3 md:pt-4 mt-auto">
             <div className="flex flex-col gap-1.5 items-start">
               <div className="bg-white/20 px-3 py-1 rounded-full inline-block">
                 <span className="text-lg md:text-xl font-black text-white tracking-tighter">

@@ -30,6 +30,8 @@ export default function CustomerDashboard() {
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [verificationResult, setVerificationResult] = useState(null);
+  const [recommendedVouchers, setRecommendedVouchers] = useState([]);
+  const [isRecommendedPersonalized, setIsRecommendedPersonalized] = useState(false);
   const navigate = useNavigate();
 
   // Profile form state
@@ -43,11 +45,14 @@ export default function CustomerDashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [userRes, voucherRes, vendorRes] = await Promise.all([
+        const [userRes, voucherRes, vendorRes, recommendedRes] = await Promise.all([
           api.get("/users/profile"),
           api.get("/vouchers/public/active"),
           api.get("/users/vendors/all"),
+          api.get("/vouchers/customer/recommended").catch(() => ({ data: { vouchers: [] } })),
         ]);
+        setRecommendedVouchers(recommendedRes.data.vouchers || []);
+        setIsRecommendedPersonalized(recommendedRes.data.isPersonalized ?? false);
 
         setCurrentUser(userRes.data.user);
         setVouchers(voucherRes.data.vouchers || []);
@@ -285,6 +290,8 @@ export default function CustomerDashboard() {
             setLoyaltyPrograms={setLoyaltyPrograms}
             handleOpenScanner={() => setIsScannerOpen(true)}
             globalTotalPoints={globalTotalPoints}
+            recommendedVouchers={recommendedVouchers}
+            isRecommendedPersonalized={isRecommendedPersonalized}
           />
         </AnimatePresence>
       </main>

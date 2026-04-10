@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link,useNavigate} from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
 import {
   Gift,
@@ -12,6 +12,62 @@ import {
   Fingerprint,
   Scan,
 } from "lucide-react";
+
+const SwipeButton = ({ text = "Swipe to Start" }) => {
+  const navigate = useNavigate();
+  const [isClicked, setIsClicked] = useState(false);
+
+  const handleTrigger = () => {
+    setIsClicked(true);
+    
+    // Delay the navigation slightly so the user sees the smooth animation
+    setTimeout(() => {
+      navigate('/register');
+    }, 600); // 0.6s matches the transition duration
+  };
+
+  return (
+    <motion.div
+      onClick={handleTrigger}
+      initial={false}
+      animate={{
+        backgroundColor: isClicked ? "rgba(255, 255, 255, 1)" : "rgba(255, 255, 255, 0.1)",
+      }}
+      transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+      className="relative flex items-center w-full max-w-[380px] gap-4 border border-white/20 rounded-full p-1.5 overflow-hidden backdrop-blur-md cursor-pointer group"
+    >
+      {/* The Moving Circle */}
+      <motion.div
+        animate={{ 
+          x: isClicked ? 330 : 0, // Moves right on click
+        }}
+        transition={{ 
+          type: "spring", 
+          stiffness: 100, 
+          damping: 20,
+          mass: 0.5 
+        }}
+        className="z-10 bg-white text-black rounded-full p-3 md:p-4"
+      >
+        <ArrowRight className="w-4 h-4 md:w-5 md:h-5" />
+      </motion.div>
+
+      {/* The Text Label */}
+      <motion.span
+        animate={{ 
+          opacity: isClicked ? 0 : 1,
+          x: isClicked ? 20 : 0 
+        }}
+        className="absolute left-1/2 -translate-x-1/2 pointer-events-none text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white whitespace-nowrap"
+      >
+        {text}
+      </motion.span>
+
+      {/* Subtle Hover Glow */}
+      <div className="absolute inset-0 bg-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+    </motion.div>
+  );
+};
 
 // --- Custom Magnetic Interaction Component ---
 const Magnetic = ({ children, className }) => {
@@ -180,19 +236,10 @@ export default function Home() {
                   and track digital gift cards securely. Zero fraud, absolute
                   control.
                 </p>
-                <Magnetic>
-                  <a
-                    href="/register"
-                    className="group flex items-center justify-between w-full border border-white/20 rounded-full p-1.5 pr-5 hover:border-white transition-colors duration-500 bg-black/40 backdrop-blur-md"
-                  >
-                    <div className="bg-white text-black rounded-full p-3 md:p-4 group-hover:scale-95 transition-transform duration-500">
-                      <ArrowRight className="w-4 h-4 md:w-5 md:h-5 group-hover:-rotate-45 transition-transform duration-500" />
-                    </div>
-                    <span className="text-[10px] md:text-xs font-bold uppercase tracking-[0.2em] text-white">
-                      Start Issuing
-                    </span>
-                  </a>
-                </Magnetic>
+               {/* Replace the old 'Create Your Vault' <a> tag with this */}
+<Magnetic>
+  <SwipeButton text="Create Your Vault" />
+</Magnetic>
               </div>
             </div>
 
@@ -330,7 +377,7 @@ export default function Home() {
                     <img
                       src={brand.src}
                       alt={brand.alt}
-                      className="object-contain h-full w-full filter brightness-100 md:brightness-0 md:scale-125 md:group-hover:scale-100 transition-transform duration-700 ease-out"
+                      className="object-contain h-full w-full filter invert brightness-0 md:invert-0 md:brightness-0 md:scale-125 md:group-hover:scale-100 transition-transform duration-700 ease-out"
                     />
                   </div>
                 </div>

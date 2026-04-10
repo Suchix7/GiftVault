@@ -38,6 +38,7 @@ const allowedOrigins = [
   "http://172.16.50.11:5173",
   "https://172.16.30.237:5173",
   "https://192.168.120.140:5173",
+  "https://192.168.110.220:5173",
   "http://172.16.30.237:5173",
   "http://192.168.120.140:5555",
   "https://kenny-erubescent-contumely.ngrok-free.dev",

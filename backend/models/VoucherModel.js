@@ -11,6 +11,10 @@ const voucherSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+    category: {
+      type: String,
+      default: "Other",
+    },
     type: {
       type: String,
       enum: ["amount", "percentage"],

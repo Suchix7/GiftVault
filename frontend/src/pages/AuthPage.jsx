@@ -54,6 +54,7 @@ const AuthPage = () => {
     phone: "",
     password: "",
     confirmPassword: "",
+    vendorCategory: "Other",
   });
 
   const toggleAuthMode = () => {
@@ -66,6 +67,7 @@ const AuthPage = () => {
       phone: "",
       password: "",
       confirmPassword: "",
+      vendorCategory: "Other",
     });
     if (!isLogin) setUserType("user");
   };
@@ -159,7 +161,7 @@ const AuthPage = () => {
 
         const response = await api.post(
           "/auth/register",
-          { name, email, password, role },
+          { name, email, password, role, vendorCategory: formData.vendorCategory },
           { withCredentials: true },
         );
 
@@ -177,6 +179,7 @@ const AuthPage = () => {
             phone: "",
             password: "",
             confirmPassword: "",
+            vendorCategory: "Other",
           });
         } else {
           setSuccess(

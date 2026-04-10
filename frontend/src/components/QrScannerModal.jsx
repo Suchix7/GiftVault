@@ -136,15 +136,15 @@ export default function QrScannerModal({ isOpen, onClose, onDecoded, hideManualI
 
   const decodeToken = async (qrToken) => {
     try {
-      // Direct pass-through for unencrypted JSON payloads or simple strings
-      // Format: loyalty-reward|userId|vendorId
+      // Format: loyalty-reward|userId|vendorId|qrToken (new format with qrToken)
       if (qrToken && typeof qrToken === "string" && qrToken.startsWith("loyalty-reward|")) {
         const parts = qrToken.split("|");
-        if (parts.length === 3) {
+        if (parts.length >= 3) {
           onDecoded({
             type: "loyalty_reward",
             userId: parts[1],
             vendorId: parts[2],
+            qrToken: parts[3] || null, // qrToken is optional for backward compatibility
           });
           onClose();
           return;

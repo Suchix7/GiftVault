@@ -74,12 +74,14 @@ export const loyaltyAPI = {
    * Claim a reward manually
    * @param {string} userId - The customer's user ID
    * @param {string} vendorId - The vendor's ID
+   * @param {string} qrToken - Optional QR token for pending reward redemption
    * @returns {Promise} Reward claim confirmation and reset status
    */
-  claimReward: async (userId, vendorId) => {
+  claimReward: async (userId, vendorId, qrToken = null) => {
     const response = await api.post(`${API_BASE}/claim-reward`, {
       userId,
       vendorId,
+      ...(qrToken && { qrToken }),
     });
     return response.data;
   },

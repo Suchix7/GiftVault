@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { ShieldCheck, User, Camera, QrCode, Zap } from "lucide-react";
+import { ShieldCheck, User, QrCode, Zap, Gift } from "lucide-react";
 import CustomerVoucherCard from "@/components/customer/CustomerVoucherCard";
 import DynamicStampCard from "@/components/loyalty/DynamicStampCard";
 
@@ -22,26 +22,28 @@ export default function CustomerDashboardContent({
   handleUpdateProfile,
   setProfileForm,
   loyaltyPrograms = {},
-  setLoyaltyPrograms = () => {},
-  handleOpenScanner = () => {},
+  setLoyaltyPrograms = () => { },
+  handleOpenScanner = () => { },
   globalTotalPoints = 0,
+  recommendedVouchers = [],
+  isRecommendedPersonalized = false,
 }) {
   const vouchersToShow =
     activeTab === "active"
       ? activeVouchers
       : activeTab === "redeemed"
-      ? redeemedVouchers
-      : expiredVouchers;
+        ? redeemedVouchers
+        : expiredVouchers;
 
   return (
-    <div className="max-w-7xl mx-auto p-5 md:p-12 relative z-10">
+    <div className="max-w-7xl mx-auto p-4 md:p-8 relative z-10">
       {activeView === "vouchers" && (
         <motion.div
           key="vouchers"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="space-y-8 md:space-y-10"
+          className="space-y-6 md:space-y-8"
         >
           <div>
             <h1 className="text-3xl md:text-4xl font-black tracking-tighter">
@@ -51,77 +53,131 @@ export default function CustomerDashboardContent({
               Manage your digital vault assets.
             </p>
           </div>
+
+          {/* Recommended for You - Weighted Category Affinity */}
+          {(() => {
+            const affordableRecommended = recommendedVouchers.filter(
+              (v) => !v.isPaid || (v.pointsRequired <= globalTotalPoints)
+            );
+            return affordableRecommended.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <span className="text-lg">{isRecommendedPersonalized ? "✨" : "🔥"}</span>
+                  <h2 className="text-xl font-black tracking-tighter text-gray-900">
+                    {isRecommendedPersonalized ? "Recommended for You" : "Popular Vouchers"}
+                  </h2>
+                  <span className="ml-auto text-[9px] font-bold text-gray-400 uppercase tracking-widest bg-gray-100 px-2 py-1 rounded-full">
+                    {isRecommendedPersonalized ? "Personalized" : "Popular"}
+                  </span>
+                </div>
+                <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar items-start">
+                  {affordableRecommended.map((voucher) => {
+                    const vidKey =
+                      typeof voucher.vendorId === "object"
+                        ? String(voucher.vendorId?._id || "")
+                        : String(voucher.vendorId || "");
+                    const resolvedVendorName =
+                      voucher.vendorId?.name || vendors[vidKey] || "Verified Partner";
+                    return (
+                      <div key={voucher._id} className="flex-shrink-0 w-72">
+                        <CustomerVoucherCard
+                          voucher={voucher}
+                          type="active"
+                          vendors={vendors}
+                          vendorName={resolvedVendorName}
+                          redemptionCodes={redemptionCodes}
+                          onRedeem={handleRedeemClick}
+                          onShowQr={handleShowQr}
+                          formatDate={formatDate}
+                          getRedemptionDate={getRedemptionDate}
+                          currentUser={currentUser}
+                          userPoints={globalTotalPoints}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex items-center p-1 bg-gray-100 rounded-2xl w-full md:w-fit border border-gray-200 shadow-inner overflow-x-auto no-scrollbar">
             {["active", "redeemed", "expired"].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 md:flex-none px-6 md:px-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  activeTab === tab
-                    ? "bg-white shadow-sm text-black"
-                    : "text-gray-400"
-                }`}
+                className={`flex-1 md:flex-none px-6 md:px-8 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === tab
+                  ? "bg-white shadow-sm text-black"
+                  : "text-gray-400"
+                  }`}
               >
                 {tab}
               </button>
             ))}
           </div>
-          {activeTab === "active" ? (
-             <>
-                <div className="mb-4 mt-8">
-                  <h2 className="text-xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
-                    <ShieldCheck size={20} className="text-emerald-500"/>
-                    Free Vault Assets
-                  </h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-                  {vouchersToShow.filter(v => !v.isPaid).map((voucher) => (
-                    <CustomerVoucherCard
-                      key={voucher._id}
-                      voucher={voucher}
-                      type={activeTab}
-                      vendors={vendors}
-                      redemptionCodes={redemptionCodes}
-                      onRedeem={handleRedeemClick}
-                      onShowQr={handleShowQr}
-                      formatDate={formatDate}
-                      getRedemptionDate={getRedemptionDate}
-                      currentUser={currentUser}
-                      userPoints={globalTotalPoints}
-                    />
-                  ))}
-                  {vouchersToShow.filter(v => !v.isPaid).length === 0 && (
-                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest col-span-full">No free assets available right now.</p>
-                  )}
-                </div>
 
-                <div className="mb-4 mt-12 pt-8 border-t border-gray-100">
-                  <h2 className="text-xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
-                    <Zap size={20} className="text-yellow-500" />
-                    Premium Assets (Requires Points)
-                  </h2>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
-                  {vouchersToShow.filter(v => v.isPaid).map((voucher) => (
-                    <CustomerVoucherCard
-                      key={voucher._id}
-                      voucher={voucher}
-                      type={activeTab}
-                      vendors={vendors}
-                      redemptionCodes={redemptionCodes}
-                      onRedeem={handleRedeemClick}
-                      onShowQr={handleShowQr}
-                      formatDate={formatDate}
-                      getRedemptionDate={getRedemptionDate}
-                      currentUser={currentUser}
-                      userPoints={globalTotalPoints}
-                    />
-                  ))}
-                  {vouchersToShow.filter(v => v.isPaid).length === 0 && (
-                     <p className="text-xs font-bold text-gray-400 uppercase tracking-widest col-span-full">No premium assets available right now.</p>
-                  )}
-                </div>
-             </>
+          {activeTab === "active" ? (
+            <>
+              <div className="mb-4 mt-6">
+                <h2 className="text-xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
+                  <ShieldCheck size={20} className="text-emerald-500" />
+                  Free Vault Assets
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                {vouchersToShow.filter((v) => !v.isPaid).map((voucher) => (
+                  <CustomerVoucherCard
+                    key={voucher._id}
+                    voucher={voucher}
+                    type={activeTab}
+                    vendors={vendors}
+                    vendorName={vendors[String(voucher.vendorId || "")] || voucher.vendor?.name || "Verified Partner"}
+                    redemptionCodes={redemptionCodes}
+                    onRedeem={handleRedeemClick}
+                    onShowQr={handleShowQr}
+                    formatDate={formatDate}
+                    getRedemptionDate={getRedemptionDate}
+                    currentUser={currentUser}
+                    userPoints={globalTotalPoints}
+                  />
+                ))}
+                {vouchersToShow.filter((v) => !v.isPaid).length === 0 && (
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest col-span-full">
+                    No free assets available right now.
+                  </p>
+                )}
+              </div>
+
+              <div className="mb-4 mt-8 pt-6 border-t border-gray-100">
+                <h2 className="text-xl font-black tracking-tighter text-gray-900 flex items-center gap-2">
+                  <Zap size={20} className="text-yellow-500" />
+                  Premium Assets (Requires Points)
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8">
+                {vouchersToShow.filter((v) => v.isPaid).map((voucher) => (
+                  <CustomerVoucherCard
+                    key={voucher._id}
+                    voucher={voucher}
+                    type={activeTab}
+                    vendors={vendors}
+                    vendorName={vendors[String(voucher.vendorId || "")] || voucher.vendor?.name || "Verified Partner"}
+                    redemptionCodes={redemptionCodes}
+                    onRedeem={handleRedeemClick}
+                    onShowQr={handleShowQr}
+                    formatDate={formatDate}
+                    getRedemptionDate={getRedemptionDate}
+                    currentUser={currentUser}
+                    userPoints={globalTotalPoints}
+                  />
+                ))}
+                {vouchersToShow.filter((v) => v.isPaid).length === 0 && (
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest col-span-full">
+                    No premium assets available right now.
+                  </p>
+                )}
+              </div>
+            </>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6 md:gap-8 mt-8">
               {vouchersToShow.map((voucher) => (
@@ -130,6 +186,7 @@ export default function CustomerDashboardContent({
                   voucher={voucher}
                   type={activeTab}
                   vendors={vendors}
+                  vendorName={vendors[String(voucher.vendorId || "")] || voucher.vendor?.name || "Verified Partner"}
                   redemptionCodes={redemptionCodes}
                   onRedeem={handleRedeemClick}
                   onShowQr={handleShowQr}
@@ -149,7 +206,7 @@ export default function CustomerDashboardContent({
           key="history"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="space-y-8 md:space-y-10"
+          className="space-y-6 md:space-y-8"
         >
           <h1 className="text-3xl md:text-4xl font-black tracking-tighter">
             Ledger
@@ -195,7 +252,7 @@ export default function CustomerDashboardContent({
           key="profile"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="space-y-8 md:space-y-10"
+          className="space-y-6 md:space-y-8"
         >
           <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-gray-900">
             Identity
@@ -214,7 +271,9 @@ export default function CustomerDashboardContent({
                     <input
                       type="text"
                       value={profileForm.name}
-                      onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })}
+                      onChange={(e) =>
+                        setProfileForm({ ...profileForm, name: e.target.value })
+                      }
                       className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
                       required
                     />
@@ -226,7 +285,9 @@ export default function CustomerDashboardContent({
                     <input
                       type="email"
                       value={profileForm.email}
-                      onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                      onChange={(e) =>
+                        setProfileForm({ ...profileForm, email: e.target.value })
+                      }
                       className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
                       required
                     />
@@ -238,7 +299,9 @@ export default function CustomerDashboardContent({
                     <input
                       type="tel"
                       value={profileForm.number}
-                      onChange={(e) => setProfileForm({ ...profileForm, number: e.target.value })}
+                      onChange={(e) =>
+                        setProfileForm({ ...profileForm, number: e.target.value })
+                      }
                       className="w-full h-12 px-4 bg-[#F5F5F7] border-transparent rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-50 transition-all outline-none font-medium text-sm"
                     />
                   </div>
@@ -294,7 +357,7 @@ export default function CustomerDashboardContent({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="space-y-8 md:space-y-10"
+          className="space-y-6 md:space-y-8"
         >
           <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
             <div>
@@ -305,7 +368,7 @@ export default function CustomerDashboardContent({
                 Track your rewards and stamp cards across your favorite vendors.
               </p>
             </div>
-            
+
             <button
               onClick={handleOpenScanner}
               className="flex items-center gap-2 px-6 py-3 bg-black text-white rounded-2xl text-xs font-black uppercase tracking-widest shadow-lg hover:bg-gray-800 transition-all active:scale-95 whitespace-nowrap w-fit shrink-0"
@@ -322,35 +385,31 @@ export default function CustomerDashboardContent({
               {Object.entries(loyaltyPrograms)
                 .filter(([_, programData]) => programData.progress?.totalPoints > 0)
                 .map(([vendorId, programData]) => (
-                <DynamicStampCard
-                  key={vendorId}
-                  vendorId={vendorId}
-                  userId={currentUser?._id}
-                  vendorName={programData.vendorName}
-                  progress={programData.progress}
-                  rules={programData.rules}
-                  onClaimReward={async () => {
-                    // We DO NOT call claimReward here anymore!
-                    // The customer shows the QR to the Vendor. The Vendor scans it and calls claimReward.
-                    // This function is now just a callback to "Refresh My Data" after closing the QR modal.
-                    const loyaltyAPI = (await import("@/api/loyalty")).default;
-                    
-                    const updated = await loyaltyAPI.getUserProgress(
-                      currentUser._id,
-                      vendorId
-                    );
-                    if (updated.success) {
-                      setLoyaltyPrograms((prev) => ({
-                        ...prev,
-                        [vendorId]: {
-                          ...prev[vendorId],
-                          ...updated.data,
-                        },
-                      }));
-                    }
-                  }}
-                />
-              ))}
+                  <DynamicStampCard
+                    key={vendorId}
+                    vendorId={vendorId}
+                    userId={currentUser?._id}
+                    vendorName={programData.vendorName}
+                    progress={programData.progress}
+                    rules={programData.rules}
+                    onClaimReward={async () => {
+                      const loyaltyAPI = (await import("@/api/loyalty")).default;
+                      const updated = await loyaltyAPI.getUserProgress(
+                        currentUser._id,
+                        vendorId
+                      );
+                      if (updated.success) {
+                        setLoyaltyPrograms((prev) => ({
+                          ...prev,
+                          [vendorId]: {
+                            ...prev[vendorId],
+                            ...updated.data,
+                          },
+                        }));
+                      }
+                    }}
+                  />
+                ))}
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-20 px-4">
@@ -366,7 +425,7 @@ export default function CustomerDashboardContent({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={1.5}
-                      d="M12 6v6m0 0v6m0-6h6m0 0h6m-6-6H6m0 0H0"
+                      d="M12 6v6m0 0v6m0-6h6m-6 0H6"
                     />
                   </svg>
                 </div>

@@ -6,7 +6,7 @@ import Voucher from "../models/VoucherModel.js";
 // Create a new user
 export const createUser = async (req, res) => {
   try {
-    const { name, email, password, role, companyName, number } = req.body;
+    const { name, email, password, role, companyName, number, vendorCategory } = req.body;
 
     // Check if user exists - more specific error message
     const userExists = await User.findOne({ email });
@@ -25,6 +25,7 @@ export const createUser = async (req, res) => {
       role: role || "user",
       companyName,
       number,
+      vendorCategory: role === "vendor" ? vendorCategory : undefined,
       isApproved: role === "vendor" ? false : true,
     });
 
@@ -117,6 +118,13 @@ export const updateUser = async (req, res) => {
       isApproved:
         updates.isApproved !== undefined ? updates.isApproved : user.isApproved,
     };
+
+    // Category protection: Only admins can change vendor category after initial registration
+    if (updates.vendorCategory && req.user?.role === "admin") {
+      updateData.vendorCategory = updates.vendorCategory;
+    } else {
+      updateData.vendorCategory = user.vendorCategory;
+    }
 
     // Only update password if it's provided and not empty
     if (updates.password && updates.password.trim() !== "") {

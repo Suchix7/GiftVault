@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import api from "@/api/axios";
 import { toast } from "sonner";
 import AdminDashboardSidebar from "@/components/admin/AdminDashboardSidebar";
 import AdminDashboardContent from "@/components/admin/AdminDashboardContent";
-import { LayoutDashboard, Users, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, BarChart2 } from "lucide-react";
 
 // ==========================================
 // SUB-COMPONENTS: MODALS & CARDS
@@ -20,6 +20,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [analytics, setAnalytics] = useState(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
 
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState("");
@@ -35,11 +37,12 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchUsers();
+    fetchAnalytics();
   }, []);
 
   const fetchUsers = () => {
     setLoading(true);
-    axios
+    api
       .get("/users")
       .then((res) => {
         setUsers(res.data);
@@ -50,6 +53,18 @@ export default function AdminDashboard() {
         toast.error("Ledger Sync Failure");
         setLoading(false);
       });
+  };
+
+  const fetchAnalytics = async () => {
+    setAnalyticsLoading(true);
+    try {
+      const res = await api.get("/vouchers/admin/analytics");
+      setAnalytics(res.data.analytics);
+    } catch (err) {
+      console.error("Analytics fetch failed", err);
+    } finally {
+      setAnalyticsLoading(false);
+    }
   };
 
   const createUser = async (userData) => {
@@ -68,9 +83,7 @@ export default function AdminDashboard() {
         if (!updateData.password || updateData.password.trim() === "")
           delete updateData.password;
 
-        const res = await axios.patch(`/users/${editingUser._id}`, updateData, {
-          withCredentials: true,
-        });
+        const res = await api.patch(`/users/${editingUser._id}`, updateData);
         setUsers(
           users.map((user) =>
             user._id === editingUser._id ? res.data.user : user,
@@ -79,7 +92,7 @@ export default function AdminDashboard() {
       } else {
         if (!userData.name || !userData.email || !userData.password)
           throw new Error("All fields required");
-        const res = await axios.post("/users", {
+        const res = await api.post("/users", {
           ...userData,
           role,
           isApproved: creatingUserType === "Vendor" ? false : true,
@@ -96,7 +109,7 @@ export default function AdminDashboard() {
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     try {
-      await axios.delete(`/users/${userToDelete._id}`);
+      await api.delete(`/users/${userToDelete._id}`);
       setUsers(users.filter((user) => user._id !== userToDelete._id));
       toast.success("Entity Purged Successfully");
     } catch (error) {
@@ -109,7 +122,7 @@ export default function AdminDashboard() {
 
   const toggleApprovalStatus = async (vendorId, newStatus) => {
     try {
-      await axios.patch(`/users/approve/${vendorId}`, {
+      await api.patch(`/users/approve/${vendorId}`, {
         isApproved: newStatus,
       });
       setUsers(
@@ -125,6 +138,7 @@ export default function AdminDashboard() {
 
   const navItems = [
     { id: "dashboard", label: "Overview", icon: LayoutDashboard },
+    { id: "analytics", label: "Analytics", icon: BarChart2 },
     { id: "vendors", label: "Vendors", icon: Users },
     { id: "customers", label: "Customers", icon: Users },
     { id: "admins", label: "Admins", icon: ShieldCheck },
@@ -143,8 +157,12 @@ export default function AdminDashboard() {
       <AdminDashboardContent
         currentPage={currentPage}
         users={users}
+        setUsers={setUsers}
         loading={loading}
         error={error}
+        analytics={analytics}
+        analyticsLoading={analyticsLoading}
+        onRefreshAnalytics={fetchAnalytics}
         searchTerm={searchTerm}
         setSearchTerm={setSearchTerm}
         isCreateModalOpen={isCreateModalOpen}

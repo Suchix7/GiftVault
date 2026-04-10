@@ -41,6 +41,17 @@ const userProgressSchema = new mongoose.Schema(
         description: String,
       },
     ],
+    pendingRewards: [
+      {
+        earnedAt: Date,
+        stampsAtEarn: Number,
+        description: String,
+        qrToken: String, // Unique token for this pending reward
+        isRedeemed: { type: Boolean, default: false },
+        redeemedAt: Date,
+        redeemedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Vendor who redeemed
+      },
+    ],
   },
   { timestamps: true }
 );

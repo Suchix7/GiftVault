@@ -57,34 +57,54 @@ const AuthForm = ({
             layout
             className="space-y-1.5"
           >
-            <Label
-              htmlFor="name"
-              className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1"
-            >
-              {userType === "vendor" ? "Business Name" : "Full Name"}{" "}
-              <span className="text-red-500">*</span>
+            <Label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
+              {userType === "vendor" ? "Business Name" : "Full Name"} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="name"
               name="name"
               type="text"
-              placeholder={
-                userType === "vendor" ? "Acme Corp" : "John Doe"
-              }
+              placeholder={userType === "vendor" ? "Acme Corp" : "John Doe"}
               value={formData.name}
               onChange={handleInputChange}
-              className={`h-12 bg-[#F5F5F7] border-transparent text-black placeholder:text-gray-400 rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-100 transition-all duration-300 shadow-none ${
-                errors.name
-                  ? "border-red-300 focus:border-red-400 focus:ring-red-100 bg-red-50/50"
-                  : ""
-              }`}
+              className={`h-12 bg-[#F5F5F7] border-transparent text-black placeholder:text-gray-400 rounded-xl focus:bg-white focus:border-gray-200 focus:ring-4 focus:ring-gray-100 transition-all duration-300 shadow-none ${errors.name ? "border-red-300 focus:border-red-400 focus:ring-red-100 bg-red-50/50" : ""}`}
               required={!isLogin}
             />
-            {errors.name && (
-              <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider ml-1 mt-1">
-                {errors.name}
-              </p>
-            )}
+            {errors.name && <p className="text-[10px] text-red-500 font-bold uppercase tracking-wider ml-1 mt-1">{errors.name}</p>}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Vendor Category (Register Vendor Only) */}
+      <AnimatePresence mode="popLayout">
+        {!isLogin && userType === "vendor" && (
+          <motion.div
+            variants={itemVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            layout
+            className="space-y-1.5"
+          >
+            <Label htmlFor="vendorCategory" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 ml-1">
+              Business Category <span className="text-red-500">*</span>
+            </Label>
+            <select
+              id="vendorCategory"
+              name="vendorCategory"
+              value={formData.vendorCategory}
+              onChange={handleInputChange}
+              className="w-full h-12 bg-[#F5F5F7] border border-transparent text-black rounded-xl px-4 focus:bg-white focus:border-gray-200 focus:outline-none focus:ring-4 focus:ring-gray-100 transition-all duration-300 appearance-none cursor-pointer"
+              required={!isLogin && userType === "vendor"}
+            >
+              <option value="Cafe">☕ Cafe</option>
+              <option value="Restaurant">🍽️ Restaurant</option>
+              <option value="Clothing">👕 Clothing</option>
+              <option value="Electronics">📱 Electronics</option>
+              <option value="Beauty">💄 Beauty</option>
+              <option value="Services">🔧 Services</option>
+              <option value="Other">🏪 Other</option>
+            </select>
           </motion.div>
         )}
       </AnimatePresence>

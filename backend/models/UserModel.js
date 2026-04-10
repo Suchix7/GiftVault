@@ -23,6 +23,11 @@ const userSchema = new mongoose.Schema(
     companyName: {
       type: String,
     },
+    vendorCategory: {
+      type: String,
+      enum: ["Cafe", "Restaurant", "Clothing", "Electronics", "Beauty", "Services", "Other"],
+      required: false, // Only relevant for vendors
+    },
     role: {
       type: String,
       enum: ["user", "vendor", "admin"],

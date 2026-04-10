@@ -35,6 +35,19 @@ router.get("/profile", protect, async (req, res) => {
   }
 });
 
+// New route: Get only vendors, returns { users: [...] }
+router.get("/vendors/all", async (req, res) => {
+  try {
+    const users = await User.find({ role: "vendor" });
+    res.json({ users });
+  } catch (error) {
+    console.error("Error fetching vendors:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+});
+
+router.get("/users", getAllUsers);
+
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -49,7 +62,6 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
-router.get("/users", getAllUsers);
 router.post("/", createUser);
 router.patch("/:id", protect, updateUser);
 router.patch("/approve/:vendorId", async (req, res) => {
@@ -76,16 +88,7 @@ router.patch("/approve/:vendorId", async (req, res) => {
   }
 });
 
-// New route: Get only vendors, returns { users: [...] }
-router.get("/vendors/all", async (req, res) => {
-  try {
-    const users = await User.find({ role: "vendor" });
-    res.json({ users });
-  } catch (error) {
-    console.error("Error fetching vendors:", error);
-    res.status(500).json({ message: "Internal server error" });
-  }
-});
+
 
 router.delete("/:id", async (req, res) => {
   try {

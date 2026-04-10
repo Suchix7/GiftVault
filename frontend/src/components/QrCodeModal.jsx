@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Copy } from "lucide-react";
 import { QRCodeCanvas as QRCode } from "qrcode.react";
@@ -14,10 +15,10 @@ export default function QrCodeModal({ isOpen, onClose, qrToken, voucher, custome
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center p-4 backdrop-blur-sm"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -77,6 +78,7 @@ export default function QrCodeModal({ isOpen, onClose, qrToken, voucher, custome
           </div>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

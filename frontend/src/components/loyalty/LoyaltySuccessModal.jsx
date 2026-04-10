@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Gift, Zap, X, ShieldCheck } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
@@ -23,16 +24,17 @@ const LoyaltySuccessModal = ({ isOpen, onClose, result, userId }) => {
     rewardText = "Free Item",
     vendorId,
     vendorName = "Merchant",
+    pendingRewardToken,
   } = result;
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+          className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
           onClick={onClose}
         >
           <motion.div
@@ -89,7 +91,7 @@ const LoyaltySuccessModal = ({ isOpen, onClose, result, userId }) => {
                 
                 <div className="bg-white p-4 rounded-3xl border-4 border-white/20 shadow-xl mb-6">
                   <QRCodeCanvas 
-                    value={`loyalty-reward|${userId}|${vendorId}`}
+                    value={`loyalty-reward|${userId}|${vendorId}|${pendingRewardToken || ""}`}
                     size={200}
                     level="H"
                     className="mx-auto"
@@ -160,7 +162,8 @@ const LoyaltySuccessModal = ({ isOpen, onClose, result, userId }) => {
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

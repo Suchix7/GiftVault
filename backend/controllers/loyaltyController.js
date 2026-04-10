@@ -218,22 +218,26 @@ export const verifyQRToken = asyncHandler(async (req, res) => {
       threshold: loyaltyRules.threshold,
       rewardEarned,
       rewardText: loyaltyRules.rewardText,
+      vendorId, // Add vendorId to response
     },
   };
 
-  // If reward is earned, add to claimed rewards
+  // If reward is earned, create a pending reward instead of auto-claiming
   if (rewardEarned) {
-    userProgress.claimedRewards.push({
-      claimedAt: new Date(),
-      stampsAtClaim: userProgress.currentStamps,
+    const qrToken = uuidv4();
+    userProgress.pendingRewards.push({
+      earnedAt: new Date(),
+      stampsAtEarn: userProgress.currentStamps,
       description: loyaltyRules.rewardText,
+      qrToken,
+      isRedeemed: false,
     });
     userProgress.rewardEarnedCount += 1;
     userProgress.currentStamps = 0; // Reset stamps for next round
     await userProgress.save();
 
-    response.data.rewardClaimedCount = userProgress.rewardEarnedCount;
-    response.data.stampsReset = true;
+    response.data.rewardPending = true;
+    response.data.pendingRewardToken = qrToken;
   }
 
   res.status(200).json(response);
@@ -274,12 +278,68 @@ export const getUserProgress = asyncHandler(async (req, res) => {
 
 /**
  * POST /loyalty/claim-reward
- * Manually claim a reward (alternatively can be called after verifyQRToken)
- * This is optional - can be triggered from frontend after stamp card UI shows reward
+ * Redeem a pending loyalty reward
+ * Called when vendor scans customer's reward QR code
  */
 export const claimReward = asyncHandler(async (req, res) => {
-  const { userId, vendorId } = req.body;
+  const { userId, vendorId, qrToken } = req.body;
 
+  // If qrToken is provided, find and redeem the specific pending reward
+  if (qrToken) {
+    const userProgress = await UserProgress.findOne({
+      userId,
+      vendorId,
+      "pendingRewards.qrToken": qrToken,
+      "pendingRewards.isRedeemed": false,
+    });
+
+    if (!userProgress) {
+      res.status(404).json({
+        success: false,
+        message: "Pending reward not found or already redeemed",
+      });
+      return;
+    }
+
+    // Find and update the specific pending reward
+    const pendingReward = userProgress.pendingRewards.find(
+      (reward) => reward.qrToken === qrToken && !reward.isRedeemed
+    );
+
+    if (!pendingReward) {
+      res.status(404).json({
+        success: false,
+        message: "Pending reward not found",
+      });
+      return;
+    }
+
+    // Mark as redeemed
+    pendingReward.isRedeemed = true;
+    pendingReward.redeemedAt = new Date();
+    pendingReward.redeemedBy = req.user._id; // Vendor who redeemed
+
+    // Move to claimed rewards
+    userProgress.claimedRewards.push({
+      claimedAt: new Date(),
+      stampsAtClaim: pendingReward.stampsAtEarn,
+      description: pendingReward.description,
+    });
+
+    await userProgress.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Reward redeemed successfully",
+      data: {
+        rewardText: pendingReward.description,
+        redeemedAt: pendingReward.redeemedAt,
+      },
+    });
+    return;
+  }
+
+  // Legacy behavior: claim reward based on current stamps (if no qrToken provided)
   const userProgress = await UserProgress.findOne({ userId, vendorId });
 
   if (!userProgress) {

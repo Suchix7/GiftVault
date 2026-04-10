@@ -497,13 +497,13 @@ const Vendor_Dashboard = () => {
       try {
         setIsRedeeming(true);
         const loyaltyAPI = (await import("@/api/loyalty")).default;
-        const result = await loyaltyAPI.claimReward(payload.userId, payload.vendorId);
+        const result = await loyaltyAPI.claimReward(payload.userId, payload.vendorId, payload.qrToken);
         
         if (result.success) {
-          toast.success("Loyalty reward claimed successfully! Customer stamps have been reset.");
+          toast.success("Loyalty reward redeemed successfully! Customer's pending reward has been claimed.");
         }
       } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to claim reward");
+        toast.error(error.response?.data?.message || "Failed to redeem reward");
       } finally {
         setIsRedeeming(false);
       }

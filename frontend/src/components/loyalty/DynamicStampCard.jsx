@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Star, Gift, CheckCircle, Zap, X, QrCode } from "lucide-react";
-import { QRCodeCanvas } from "qrcode.react";
+import { Star, Gift, CheckCircle, QrCode } from "lucide-react";
+import loyaltyAPI from "@/api/loyalty";
+import LoyaltyRewardModal from "./LoyaltyRewardModal";
+
 
 /**
  * DynamicStampCard Component
@@ -20,8 +22,8 @@ const DynamicStampCard = ({
   progress = {},
   rules = {},
 }) => {
-  const [isClaimingReward, setIsClaimingReward] = useState(false);
-  const [rewardClaimed, setRewardClaimed] = useState(false);
+  const [pendingRewards, setPendingRewards] = useState([]);
+  const [isRewardModalOpen, setIsRewardModalOpen] = useState(false);
 
   const threshold = rules.threshold || 5;
   const currentStamps = progress.currentStamps || 0;
@@ -32,29 +34,37 @@ const DynamicStampCard = ({
   const stampPercentage = (currentStamps / threshold) * 100;
   const isRewardReady = currentStamps >= threshold;
 
+  // Fetch pending rewards on component mount and periodically refresh
+  useEffect(() => {
+    const fetchPendingRewards = async () => {
+      try {
+        const response = await loyaltyAPI.getUserProgress(userId, vendorId);
+        if (response.success && response.data.progress.pendingRewards) {
+          setPendingRewards(response.data.progress.pendingRewards.filter(r => !r.isRedeemed));
+        }
+      } catch (error) {
+        console.error("Failed to fetch pending rewards:", error);
+      }
+    };
+
+    fetchPendingRewards();
+    
+    // Refresh every 10 seconds to check for redeemed rewards
+    const interval = setInterval(fetchPendingRewards, 10000);
+    
+    return () => clearInterval(interval);
+  }, [userId, vendorId]);
+
   // Generate stamp array
   const stamps = Array.from({ length: threshold }, (_, index) => ({
     id: index,
     isFilled: index < currentStamps,
   }));
 
-  const handleClaimReward = async () => {
-    setIsClaimingReward(true); // Now used to open the QR modal
-  };
-
-  const handleCloseClaimModal = async () => {
-    setIsClaimingReward(false);
-    
-    // Refresh the progress
-    if (onClaimReward) {
-      await onClaimReward();
-    }
-  };
-
   return (
-    <div className="w-full max-w-md mx-auto p-8 bg-white border border-gray-100 rounded-[2rem] shadow-xl">
+    <div className="w-full max-w-sm mx-auto p-6 bg-white border border-gray-100 rounded-[2rem] shadow-xl">
       {/* Header */}
-      <div className="text-center mb-10">
+      <div className="text-center mb-6">
         <h2 className="text-2xl font-black tracking-tighter text-gray-900 mb-2 uppercase">
           {vendorName} Loyalty
         </h2>
@@ -62,7 +72,7 @@ const DynamicStampCard = ({
       </div>
 
       {/* Progress Bar */}
-      <div className="mb-10">
+      <div className="mb-8">
         <div className="flex justify-between items-center mb-3">
           <span className="text-[10px] font-black tracking-widest uppercase text-gray-500">
             Progress
@@ -82,7 +92,7 @@ const DynamicStampCard = ({
       </div>
 
       {/* Stamp Grid */}
-      <div className="mb-10">
+      <div className="mb-8">
         <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(threshold, 5)}, 1fr)` }}>
           {stamps.map((stamp, index) => (
             <motion.div
@@ -124,7 +134,7 @@ const DynamicStampCard = ({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-4 mb-10">
+      <div className="grid grid-cols-1 gap-4 mb-8">
         <div className="bg-gray-50 border border-gray-100 rounded-3xl p-5 text-center">
           <Gift className="w-5 h-5 text-black mx-auto mb-3 opacity-80" />
           <p className="text-3xl font-black tracking-tighter text-gray-900">{rewardEarnedCount}</p>
@@ -132,111 +142,66 @@ const DynamicStampCard = ({
         </div>
       </div>
 
-      {/* Reward Ready Message & Button */}
-      {isRewardReady && (
+      {/* Pending Rewards QR Display */}
+      {pendingRewards.length > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
           className="mb-6"
         >
-          <div className="bg-gray-50 border-l-4 border-black rounded-r-2xl p-5 mb-6">
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-r-2xl p-5 mb-6">
             <div className="flex items-start gap-4">
-              <CheckCircle className="w-5 h-5 text-black flex-shrink-0 mt-0.5" />
+              <Gift className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-black text-gray-900 uppercase tracking-wider">
-                  {rewardText} Unlocked!
+                  Reward Available!
                 </h3>
-                <p className="text-xs text-gray-500 mt-2 font-medium">
-                  You've earned your reward. Claim it now!
+                <p className="text-xs text-gray-600 mt-2 font-medium">
+                  Show this QR code to the vendor to claim your {pendingRewards[0].description}.
                 </p>
               </div>
             </div>
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleClaimReward}
-            disabled={isClaimingReward}
-            className={`
-              w-full h-14 rounded-full text-xs font-black uppercase tracking-[0.2em]
-              transition-all duration-300 flex items-center justify-center gap-3 shadow-lg
-              ${
-                isClaimingReward
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-black text-white hover:bg-gray-900 active:scale-95 shadow-black/5"
-              }
-            `}
+          <button 
+            onClick={() => setIsRewardModalOpen(true)}
+            className="w-full py-4 bg-black text-white rounded-2xl text-xs font-black uppercase tracking-[0.2em] shadow-xl hover:bg-gray-900 transition-all active:scale-95 flex items-center justify-center gap-3"
           >
-            <Gift className="w-4 h-4" />
-            {isClaimingReward ? "Generating QR..." : "Generate Claim QR"}
-          </motion.button>
+            <QrCode className="w-5 h-5" />
+            {pendingRewards.length > 1 ? `Display ${pendingRewards.length} Rewards` : "Show Reward QR"}
+          </button>
+
+          <p className="text-[10px] font-medium text-gray-500 text-center mt-4 leading-relaxed">
+            Present the QR code to {vendorName} staff to redeem your reward.
+          </p>
         </motion.div>
       )}
-
-      {/* QR Code Modal Overlay */}
-      {isClaimingReward && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl relative text-center"
-          >
-            <button
-              onClick={handleCloseClaimModal}
-              className="absolute top-6 right-6 text-gray-400 hover:text-black transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-            
-            <div className="mx-auto bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
-              <QrCode className="w-8 h-8 text-black" />
-            </div>
-            
-            <h3 className="text-2xl font-black text-gray-900 mb-2">Claim Reward</h3>
-            <p className="text-sm font-medium text-gray-500 mb-8">
-              Show this QR code to the vendor staff to claim your <strong className="text-black">{rewardText}</strong>.
-            </p>
-            
-            <div className="bg-white p-4 rounded-2xl border-4 border-gray-100 shadow-sm inline-block mb-8">
-              <QRCodeCanvas 
-                value={`loyalty-reward|${userId}|${vendorId}`}
-                size={220}
-                level="Q"
-                className="mx-auto"
-              />
-            </div>
-            
-            <button
-              onClick={handleCloseClaimModal}
-              className="w-full bg-black text-white font-bold py-4 rounded-xl hover:bg-gray-900 transition-colors"
-            >
-              Close & Refresh Status
-            </button>
-          </motion.div>
-        </div>
-      )}
-
-      {/* Claimed Confirmation */}
-      {rewardClaimed && (
+      {isRewardReady && pendingRewards.length === 0 && (
         <motion.div
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.9 }}
-          className="bg-gray-50 border border-gray-100 rounded-3xl p-6 text-center shadow-lg"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          className="mb-6"
         >
-          <CheckCircle className="w-8 h-8 text-black mx-auto mb-3" />
-          <p className="text-gray-900 font-black uppercase tracking-widest text-lg">Reward Claimed!</p>
-          <p className="text-xs text-gray-500 mt-2 font-medium">
-            Your stamps have been reset. Keep collecting!
-          </p>
+          <div className="bg-black text-white rounded-2xl p-5">
+            <div className="flex items-start gap-4">
+              <CheckCircle className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black uppercase tracking-wider">
+                  Threshold Reached
+                </h3>
+                <p className="text-xs text-gray-300 mt-2 font-medium">
+                  You've earned your reward. Scan a QR code to unlock it!
+                </p>
+              </div>
+            </div>
+          </div>
         </motion.div>
       )}
 
       {/* Info Box */}
-      {!isRewardReady && (
+      {!isRewardReady && pendingRewards.length === 0 && (
         <div className="bg-gray-50 border border-gray-100 text-gray-500 text-xs rounded-2xl p-4 text-center font-medium">
           <p>
             <strong className="text-black">{threshold - currentStamps}</strong> more{" "}
@@ -245,6 +210,15 @@ const DynamicStampCard = ({
           </p>
         </div>
       )}
+
+      <LoyaltyRewardModal
+        isOpen={isRewardModalOpen}
+        onClose={() => setIsRewardModalOpen(false)}
+        pendingRewards={pendingRewards}
+        userId={userId}
+        vendorId={vendorId}
+        vendorName={vendorName}
+      />
     </div>
   );
 };

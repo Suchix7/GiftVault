@@ -8,6 +8,8 @@ import {
   deleteVoucher,
   getAllActiveVouchers,
   redeemVoucher,
+  getRecommendedVouchers,
+  getAdminAnalytics,
   completeVoucherRedemption,
   findVoucherByCode,
   decodeQrPayload,
@@ -39,6 +41,8 @@ router.post("/decode-qr", protect, isVendor, decodeQrPayload);
 
 // Customer routes
 router.get("/public/active", getAllActiveVouchers); // Get all active vouchers (public)
+router.get("/customer/recommended", protect, getRecommendedVouchers);
+router.get("/admin/analytics", protect, getAdminAnalytics); // Get recommended vouchers
 router.post("/:id/redeem", protect, redeemVoucher); // Redeem voucher (requires customer auth)
 
 export default router;

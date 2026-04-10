@@ -312,7 +312,10 @@ const QRVerificationPage = () => {
 
               <div className="bg-white p-6 rounded-[2.5rem] border-4 border-gray-50 shadow-inner mb-8 inline-block relative group">
                 <QRCodeCanvas 
-                  value={`loyalty-reward|${currentUser?._id}|${result?.vendorId}`}
+                  value={result?.pendingRewardToken 
+                    ? `loyalty-reward|${currentUser?._id}|${result?.vendorId}|${result.pendingRewardToken}`
+                    : `loyalty-reward|${currentUser?._id}|${result?.vendorId}`
+                  }
                   size={220}
                   level="H"
                   className="mx-auto"
@@ -323,7 +326,7 @@ const QRVerificationPage = () => {
               </div>
 
               <p className="text-[11px] font-medium text-gray-500 mb-10 leading-relaxed uppercase tracking-tight">
-                Show this cryptographic token to the merchant staff to claim your <strong className="text-black">{result?.rewardText || "Reward"}</strong>.
+                Your reward is now pending redemption. Visit your dashboard to view and claim your <strong className="text-black">{result?.rewardText || "Reward"}</strong> by showing this QR to the vendor.
               </p>
 
               <button

@@ -60,10 +60,15 @@ export const createVoucher = async (req, res) => {
     const { encrypted: encryptedCode, privateKey } = encrypt(voucherCode);
     const encryptedPrivateKey = encryptAES(privateKey);
 
-    // Create the voucher with encrypted code
+    // Fetch vendor category
+    const vendor = await User.findById(vendorId);
+    const category = vendor?.vendorCategory || "Other";
+
+    // Create the voucher with encrypted code and category
     const voucher = await Voucher.create({
       ...voucherData,
       vendorId,
+      category,
       encryptedCode,
       encryptedPrivateKey,
       publicKey: {
@@ -412,6 +417,102 @@ export const redeemVoucher = async (req, res) => {
   }
 };
 
+// Recommendation Engine: Weighted Category Affinity Model
+export const getRecommendedVouchers = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // 1. Fetch User Interaction History
+    const [progresses, user] = await Promise.all([
+      UserProgress.find({ userId }).populate("vendorId", "vendorCategory"),
+      User.findById(userId).populate({
+        path: "redeemedVouchers",
+        select: "category vendorId"
+      })
+    ]);
+
+    // 2. Score Categories
+    const categoryScores = {};
+
+    // Weight 1: Loyalty Progress (+3 points)
+    // If a user has stamps at a vendor, they are interested in that category
+    progresses.forEach(p => {
+      const category = p.vendorId?.vendorCategory;
+      if (category) {
+        // We also consider the amount of stamps as a slight multiplier
+        const weight = 3 + (p.currentStamps * 0.1);
+        categoryScores[category] = (categoryScores[category] || 0) + weight;
+      }
+    });
+
+    // Weight 2: Past Redemptions (+2 points)
+    user.redeemedVouchers.forEach(v => {
+      const category = v.category;
+      if (category) {
+        categoryScores[category] = (categoryScores[category] || 0) + 2;
+      }
+    });
+
+    // 3. Fetch Candidate Vouchers
+    const redeemedVoucherIds = user.redeemedVouchers.map(v => v._id);
+    const allActiveVouchers = await Voucher.find({
+      status: "active",
+      expiryDate: { $gt: new Date() },
+      _id: { $nin: redeemedVoucherIds }
+    }).populate("vendorId", "name companyName vendorCategory");
+
+    // 4. Determine if user has any history to personalize on
+    const isPersonalized = Object.keys(categoryScores).length > 0;
+
+    // 5. Build scored vouchers list
+    const scoredVouchers = allActiveVouchers
+      .filter(v => v.vendorId) // Ensure vendor exists
+      .map(v => {
+        const category = v.category || v.vendorId?.vendorCategory || "Other";
+        const score = categoryScores[category] || 0;
+
+        return {
+          ...v.toObject(),
+          recommendationScore: score,
+          vendor: {
+            name: v.vendorId.companyName || v.vendorId.name,
+            email: v.vendorId.email
+          }
+        };
+      });
+
+    if (isPersonalized) {
+      // Personalized: rank by affinity score, break ties by newest first
+      scoredVouchers.sort((a, b) => {
+        if (b.recommendationScore !== a.recommendationScore) {
+          return b.recommendationScore - a.recommendationScore;
+        }
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    } else {
+      // Cold-start: rank by popularity (most redeemed first), then newest
+      scoredVouchers.sort((a, b) => {
+        const popDiff = (b.redeemedCount || 0) - (a.redeemedCount || 0);
+        if (popDiff !== 0) return popDiff;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+    }
+
+    const recommended = scoredVouchers.slice(0, 8);
+
+    res.json({
+      success: true,
+      count: recommended.length,
+      vouchers: recommended,
+      isPersonalized,
+    });
+
+  } catch (error) {
+    console.error("Recommendation System Error:", error);
+    res.status(500).json({ success: false, message: "Failed to generate recommendations" });
+  }
+};
+
 // Find voucher by code
 export const findVoucherByCode = async (req, res) => {
   try {
@@ -686,6 +787,122 @@ export const completeVoucherRedemption = async (req, res) => {
       success: false,
       message: error.message || "Failed to redeem voucher",
     });
+  }
+};
+
+// Admin Analytics — Weighted Business Intelligence Aggregation
+export const getAdminAnalytics = async (req, res) => {
+  try {
+    const [allVouchers, allUsers, allProgress] = await Promise.all([
+      Voucher.find({}).populate("vendorId", "name companyName vendorCategory email"),
+      User.find({}).select("name email role redeemedVouchers bonusPoints createdAt"),
+      UserProgress.find({}).populate("vendorId", "vendorCategory"),
+    ]);
+
+    // 1. Voucher performance stats
+    const voucherStats = allVouchers.map(v => ({
+      _id: v._id,
+      name: v.name,
+      category: v.category || v.vendorId?.vendorCategory || "Other",
+      status: v.status,
+      vendorName: v.vendorId?.companyName || v.vendorId?.name || "Unknown",
+      vendorCompanyName: v.vendorId?.companyName || null,
+      vendorPersonName: v.vendorId?.name || null,
+      vendorId: v.vendorId?._id,
+      sentCount: v.sentCount || 0,
+      redeemedCount: v.redeemedCount || 0,
+      redemptionRate: v.sentCount > 0 ? Math.round((v.redeemedCount / v.sentCount) * 100) : 0,
+      isPaid: v.isPaid,
+      pointsRequired: v.pointsRequired,
+      expiryDate: v.expiryDate,
+      createdAt: v.createdAt,
+    }));
+
+    // 2. Vendor performance — group vouchers by vendor
+    const vendorMap = {};
+    allVouchers.forEach(v => {
+      if (!v.vendorId) return;
+      const vid = v.vendorId._id.toString();
+      if (!vendorMap[vid]) {
+        vendorMap[vid] = {
+          vendorId: vid,
+          vendorName: v.vendorId.companyName || v.vendorId.name,
+          vendorCompanyName: v.vendorId.companyName || null,
+          vendorPersonName: v.vendorId.name,
+          vendorCategory: v.vendorId.vendorCategory || "Other",
+          email: v.vendorId.email,
+          totalVouchers: 0,
+          activeVouchers: 0,
+          totalRedeemed: 0,
+          totalSent: 0,
+        };
+      }
+      vendorMap[vid].totalVouchers++;
+      if (v.status === "active") vendorMap[vid].activeVouchers++;
+      vendorMap[vid].totalRedeemed += v.redeemedCount || 0;
+      vendorMap[vid].totalSent += v.sentCount || 0;
+    });
+
+    const vendorPerformance = Object.values(vendorMap)
+      .map(v => ({
+        ...v,
+        redemptionRate: v.totalSent > 0 ? Math.round((v.totalRedeemed / v.totalSent) * 100) : 0,
+      }))
+      .sort((a, b) => b.totalRedeemed - a.totalRedeemed);
+
+    // 3. Category breakdown
+    const categoryMap = {};
+    allVouchers.forEach(v => {
+      const cat = v.category || v.vendorId?.vendorCategory || "Other";
+      if (!categoryMap[cat]) categoryMap[cat] = { category: cat, totalVouchers: 0, totalRedeemed: 0, totalSent: 0 };
+      categoryMap[cat].totalVouchers++;
+      categoryMap[cat].totalRedeemed += v.redeemedCount || 0;
+      categoryMap[cat].totalSent += v.sentCount || 0;
+    });
+    const categoryBreakdown = Object.values(categoryMap)
+      .map(c => ({ ...c, redemptionRate: c.totalSent > 0 ? Math.round((c.totalRedeemed / c.totalSent) * 100) : 0 }))
+      .sort((a, b) => b.totalRedeemed - a.totalRedeemed);
+
+    // 4. Top customers by redemptions
+    const customers = allUsers.filter(u => u.role === "user");
+    const topCustomers = customers
+      .map(u => ({ name: u.name, email: u.email, redemptions: u.redeemedVouchers?.length || 0, bonusPoints: u.bonusPoints || 0 }))
+      .sort((a, b) => b.redemptions - a.redemptions)
+      .slice(0, 10);
+
+    // 5. Platform health
+    const totalVouchers = allVouchers.length;
+    const totalRedemptions = allVouchers.reduce((sum, v) => sum + (v.redeemedCount || 0), 0);
+    const totalSent = allVouchers.reduce((sum, v) => sum + (v.sentCount || 0), 0);
+    const totalLoyaltyScans = allProgress.reduce((sum, p) => sum + (p.rewardEarnedCount || 0), 0);
+    const totalBonusPoints = customers.reduce((sum, u) => sum + (u.bonusPoints || 0), 0);
+    const approvedVendors = allUsers.filter(u => u.role === "vendor" && u.isApproved).length;
+    const totalVendors = allUsers.filter(u => u.role === "vendor").length;
+
+    res.json({
+      success: true,
+      analytics: {
+        platformHealth: {
+          totalVouchers,
+          totalRedemptions,
+          totalSent,
+          overallRedemptionRate: totalSent > 0 ? Math.round((totalRedemptions / totalSent) * 100) : 0,
+          totalLoyaltyScans,
+          totalBonusPoints,
+          vendorApprovalRate: totalVendors > 0 ? Math.round((approvedVendors / totalVendors) * 100) : 0,
+          totalCustomers: customers.length,
+          totalVendors,
+        },
+        topVouchers: voucherStats.sort((a, b) => b.redeemedCount - a.redeemedCount).slice(0, 10),
+        worstVouchers: voucherStats.filter(v => v.status === "active").sort((a, b) => a.redemptionRate - b.redemptionRate).slice(0, 5),
+        vendorPerformance: vendorPerformance.slice(0, 10),
+        categoryBreakdown,
+        topCustomers,
+      }
+    });
+  } catch (error) {
+    console.error("Admin analytics error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch analytics" });
   }
 };
 
