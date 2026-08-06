@@ -12,6 +12,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from "recharts";
+import CryptographyBenchmarkPage from "./CryptographyBenchmarkPage";
 
 const cn = (...classes) => classes.filter(Boolean).join(" ");
 
@@ -722,6 +723,7 @@ export default function AdminDashboardContent({
             {currentPage === "vendors" && <DataRegistry type="vendors" title="Vendor Management" {...registryProps} />}
             {currentPage === "customers" && <DataRegistry type="customers" title="Customer Directory" {...registryProps} />}
             {currentPage === "admins" && <DataRegistry type="admins" title="Admin Governance" {...registryProps} />}
+            {currentPage === "cryptography" && <CryptographyBenchmarkPage />}
           </motion.div>
         </AnimatePresence>
       </div>

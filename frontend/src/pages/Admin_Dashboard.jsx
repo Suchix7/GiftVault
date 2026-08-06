@@ -5,7 +5,7 @@ import api from "@/api/axios";
 import { toast } from "sonner";
 import AdminDashboardSidebar from "@/components/admin/AdminDashboardSidebar";
 import AdminDashboardContent from "@/components/admin/AdminDashboardContent";
-import { LayoutDashboard, Users, ShieldCheck, BarChart2 } from "lucide-react";
+import { LayoutDashboard, Users, ShieldCheck, BarChart2, Cpu } from "lucide-react";
 
 // ==========================================
 // SUB-COMPONENTS: MODALS & CARDS
@@ -142,6 +142,7 @@ export default function AdminDashboard() {
     { id: "vendors", label: "Vendors", icon: Users },
     { id: "customers", label: "Customers", icon: Users },
     { id: "admins", label: "Admins", icon: ShieldCheck },
+    { id: "cryptography", label: "Crypto Bench", icon: Cpu },
   ];
 
 
