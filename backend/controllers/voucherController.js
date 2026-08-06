@@ -336,12 +336,21 @@ export const redeemVoucher = async (req, res) => {
       throw new Error("Invalid or missing encryptedPrivateKey structure");
     }
 
-    // 🔐 If no private key provided, decrypt and email it
+    // 🔐 If no private key provided, decrypt and email it (or redirect for demo accounts)
     if (!privateKey) {
       try {
         const decryptedKey = decryptAES(voucher.encryptedPrivateKey);
+
+        // ── DEMO MODE: redirect email to real inbox ──────────────────────────
+        // @giftvault.demo addresses don't exist — send the key to the demo inbox
+        // so it can be shown during the presentation.
+        const DEMO_REDIRECT_EMAIL = "chitrakarsujal7@gmail.com";
+        const recipientEmail = req.user.email.endsWith("@giftvault.demo")
+          ? DEMO_REDIRECT_EMAIL
+          : req.user.email;
+
         await sendPrivateKeyEmail(
-          req.user.email,
+          recipientEmail,
           req.user.name,
           {
             name: voucher.name,
@@ -352,9 +361,13 @@ export const redeemVoucher = async (req, res) => {
           decryptedKey,
         );
 
+        const message = req.user.email.endsWith("@giftvault.demo")
+          ? `Demo mode: private key sent to ${DEMO_REDIRECT_EMAIL}`
+          : "Private key has been sent to your email";
+
         return res.json({
           success: true,
-          message: "Private key has been sent to your email",
+          message,
           requiresKey: true,
         });
       } catch (emailError) {
@@ -795,7 +808,7 @@ export const getAdminAnalytics = async (req, res) => {
   try {
     const [allVouchers, allUsers, allProgress] = await Promise.all([
       Voucher.find({}).populate("vendorId", "name companyName vendorCategory email"),
-      User.find({}).select("name email role redeemedVouchers bonusPoints createdAt"),
+      User.find({}).select("name email role redeemedVouchers bonusPoints createdAt").populate("redeemedVouchers", "name value type category"),
       UserProgress.find({}).populate("vendorId", "vendorCategory"),
     ]);
 
@@ -864,11 +877,94 @@ export const getAdminAnalytics = async (req, res) => {
       .sort((a, b) => b.totalRedeemed - a.totalRedeemed);
 
     // 4. Top customers by redemptions
+    // 4. Top customers by redemptions
     const customers = allUsers.filter(u => u.role === "user");
     const topCustomers = customers
       .map(u => ({ name: u.name, email: u.email, redemptions: u.redeemedVouchers?.length || 0, bonusPoints: u.bonusPoints || 0 }))
       .sort((a, b) => b.redemptions - a.redemptions)
       .slice(0, 10);
+
+    // Compute last scan times per user from UserProgress
+    const userLastScanMap = {};
+    allProgress.forEach(p => {
+      if (p.userId && p.lastScannedAt) {
+        const uid = p.userId._id ? p.userId._id.toString() : p.userId.toString();
+        const date = new Date(p.lastScannedAt);
+        if (!userLastScanMap[uid] || date > userLastScanMap[uid]) {
+          userLastScanMap[uid] = date;
+        }
+      }
+    });
+
+    // Enriched customer list with retention statuses
+    const enrichedCustomersAnalytics = customers.map(u => {
+      const categoriesCount = {};
+      u.redeemedVouchers?.forEach(vid => {
+        const v = allVouchers.find(x => x._id.toString() === vid.toString());
+        if (v) {
+          const cat = v.category || v.vendorId?.vendorCategory || "Other";
+          categoriesCount[cat] = (categoriesCount[cat] || 0) + 1;
+        }
+      });
+      
+      let preferredCategory = "Cafe";
+      let maxCount = -1;
+      Object.entries(categoriesCount).forEach(([cat, count]) => {
+        if (count > maxCount) {
+          maxCount = count;
+          preferredCategory = cat;
+        }
+      });
+
+      const lastScan = userLastScanMap[u._id.toString()] || null;
+      const now = new Date();
+      let status = "Active";
+      let statusColor = "emerald";
+      let inactiveDays = 0;
+
+      if (!lastScan) {
+        status = "Inactive";
+        statusColor = "gray";
+      } else {
+        inactiveDays = Math.floor((now - lastScan) / (1000 * 60 * 60 * 24));
+        if (inactiveDays >= 7) {
+          status = "At Churn Risk";
+          statusColor = "rose";
+        } else if (inactiveDays >= 3) {
+          status = "Idle";
+          statusColor = "amber";
+        } else if (u.bonusPoints >= 100) {
+          status = "VIP";
+          statusColor = "indigo";
+        }
+      }
+
+      return {
+        userId: u._id,
+        name: u.name,
+        email: u.email,
+        bonusPoints: u.bonusPoints || 0,
+        redemptionsCount: u.redeemedVouchers?.length || 0,
+        preferredCategory,
+        lastScanDate: lastScan,
+        inactiveDays,
+        status,
+        statusColor,
+        redeemedVouchers: u.redeemedVouchers?.map(v => ({
+          _id: v._id,
+          name: v.name,
+          value: v.value,
+          type: v.type,
+          category: v.category || "Other"
+        })) || []
+      };
+    });
+
+    // Retention summary aggregates
+    const adminActiveCount = enrichedCustomersAnalytics.filter(c => c.status === "Active" || c.status === "VIP").length;
+    const adminIdleCount = enrichedCustomersAnalytics.filter(c => c.status === "Idle").length;
+    const adminChurnCount = enrichedCustomersAnalytics.filter(c => c.status === "At Churn Risk").length;
+    const adminInactiveCount = enrichedCustomersAnalytics.filter(c => c.status === "Inactive").length;
 
     // 5. Platform health
     const totalVouchers = allVouchers.length;
@@ -898,6 +994,16 @@ export const getAdminAnalytics = async (req, res) => {
         vendorPerformance: vendorPerformance.slice(0, 10),
         categoryBreakdown,
         topCustomers,
+        customerRetention: {
+          customers: enrichedCustomersAnalytics,
+          summary: {
+            activeCount: adminActiveCount,
+            idleCount: adminIdleCount,
+            churnRiskCount: adminChurnCount,
+            inactiveCount: adminInactiveCount,
+            retentionRate: customers.length > 0 ? Math.round((adminActiveCount / customers.length) * 100) : 100,
+          }
+        }
       }
     });
   } catch (error) {

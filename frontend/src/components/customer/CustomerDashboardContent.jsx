@@ -77,7 +77,7 @@ export default function CustomerDashboardContent({
                         ? String(voucher.vendorId?._id || "")
                         : String(voucher.vendorId || "");
                     const resolvedVendorName =
-                      voucher.vendorId?.name || vendors[vidKey] || "Verified Partner";
+                      voucher.vendorId?.companyName || voucher.vendorId?.name || vendors[vidKey] || "Verified Partner";
                     return (
                       <div key={voucher._id} className="flex-shrink-0 w-72">
                         <CustomerVoucherCard
@@ -131,7 +131,7 @@ export default function CustomerDashboardContent({
                     voucher={voucher}
                     type={activeTab}
                     vendors={vendors}
-                    vendorName={vendors[String(voucher.vendorId || "")] || voucher.vendor?.name || "Verified Partner"}
+                    vendorName={vendors[String(voucher.vendorId || "")] || voucher.vendor?.companyName || voucher.vendor?.name || "Verified Partner"}
                     redemptionCodes={redemptionCodes}
                     onRedeem={handleRedeemClick}
                     onShowQr={handleShowQr}
@@ -161,7 +161,7 @@ export default function CustomerDashboardContent({
                     voucher={voucher}
                     type={activeTab}
                     vendors={vendors}
-                    vendorName={vendors[String(voucher.vendorId || "")] || voucher.vendor?.name || "Verified Partner"}
+                    vendorName={vendors[String(voucher.vendorId || "")] || voucher.vendor?.companyName || voucher.vendor?.name || "Verified Partner"}
                     redemptionCodes={redemptionCodes}
                     onRedeem={handleRedeemClick}
                     onShowQr={handleShowQr}

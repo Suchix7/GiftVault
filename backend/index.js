@@ -19,7 +19,7 @@ console.log("[Config] EMAIL_PASSWORD exists:", !!process.env.EMAIL_PASSWORD);
 console.log("[Config] MONGODB_URI exists:", !!process.env.MONGODB_URI);
 
 const app = express();
-const HOST = '0.0.0.0'; 
+const HOST = '0.0.0.0';
 
 // Middleware
 app.use(express.json());
@@ -32,18 +32,28 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 // CORS configuration
 const allowedOrigins = [
   "https://localhost:5173",
+  "http://localhost:5173",
   "http://localhost:5179",
   "http://localhost:5178",
   "http://localhost:5555",
-  "http://172.16.50.11:5173",
+  // LAN / mobile — all three Vite network IPs, both http and https
+  "http://192.168.56.1:5173",
+  "https://192.168.56.1:5173",
+  "http://192.168.137.1:5173",
+  "https://192.168.137.1:5173",
+  "http://192.168.1.66:5173",
+  "https://192.168.1.66:5173",
+  // Other legacy entries
   "https://172.16.30.237:5173",
   "https://192.168.120.140:5173",
   "https://192.168.110.220:5173",
+  "http://172.16.50.11:5173",
   "http://172.16.30.237:5173",
   "http://192.168.120.140:5555",
   "https://kenny-erubescent-contumely.ngrok-free.dev",
   "https://bpsxm4qr-5555.inc1.devtunnels.ms"
 ];
+
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -101,7 +111,7 @@ app.use((err, req, res, next) => {
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT,HOST, () => {
+    app.listen(PORT, HOST, () => {
       console.log(`Server running on port ${PORT} (http://localhost:${PORT})`);
       console.log(`Accessible on your network at http://<YOUR_IP>:${PORT}`);
     });

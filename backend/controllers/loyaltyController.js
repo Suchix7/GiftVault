@@ -4,6 +4,7 @@ import LoyaltyRule from "../models/LoyaltyRuleModel.js";
 import DynamicQR from "../models/DynamicQRModel.js";
 import UserProgress from "../models/UserProgressModel.js";
 import { User } from "../models/UserModel.js";
+import Voucher from "../models/VoucherModel.js";
 
 /**
  * GET /loyalty/rules/:vendorId
@@ -414,9 +415,130 @@ export const getVendorLoyaltyStats = asyncHandler(async (req, res) => {
 
   const totalCustomers = await UserProgress.countDocuments({ vendorId });
 
+  // Fetch top customers (highest loyalty points)
   const topCustomers = await UserProgress.find({ vendorId })
+    .populate("userId", "name email bonusPoints")
     .sort({ totalPoints: -1 })
     .limit(10);
+
+  // Fetch all customer records for this vendor's directory
+  const allCustomers = await UserProgress.find({ vendorId })
+    .populate("userId", "name email bonusPoints")
+    .sort({ lastScannedAt: -1 });
+
+  // Calculate stats & status for each customer
+  const enrichedCustomers = allCustomers
+    .filter(c => c.userId) // Ensure User object exists
+    .map(c => {
+      const lastScan = c.lastScannedAt ? new Date(c.lastScannedAt) : null;
+      const now = new Date();
+      let status = "Active";
+      let statusColor = "emerald";
+
+      if (!lastScan) {
+        status = "Inactive";
+        statusColor = "gray";
+      } else {
+        const diffDays = Math.floor((now - lastScan) / (1000 * 60 * 60 * 24));
+        if (diffDays >= 7) {
+          status = "At Churn Risk";
+          statusColor = "rose";
+        } else if (diffDays >= 3) {
+          status = "Idle";
+          statusColor = "amber";
+        } else if (c.totalPoints >= 50) {
+          status = "VIP";
+          statusColor = "indigo";
+        }
+      }
+
+      return {
+        _id: c._id,
+        userId: c.userId._id,
+        name: c.userId.name,
+        email: c.userId.email,
+        totalPoints: c.totalPoints,
+        currentStamps: c.currentStamps,
+        rewardEarnedCount: c.rewardEarnedCount,
+        lastScannedAt: c.lastScannedAt,
+        status,
+        statusColor,
+      };
+    });
+
+  // Fetch recent used QR codes (scans)
+  const recentScans = await DynamicQR.find({ vendorId, isUsed: true })
+    .sort({ usedAt: -1 })
+    .limit(20)
+    .populate("usedBy", "name email");
+
+  // Fetch recent redemptions
+  const vendorVouchers = await Voucher.find({ vendorId }).lean();
+  const rawRedemptions = [];
+  vendorVouchers.forEach(v => {
+    if (v.redemptions && v.redemptions.length > 0) {
+      v.redemptions.forEach(r => {
+        rawRedemptions.push({
+          voucherId: v._id,
+          voucherName: v.name,
+          voucherValue: v.value,
+          voucherType: v.type,
+          userId: r.userId,
+          code: r.code,
+          redeemedAt: r.redeemedAt
+        });
+      });
+    }
+  });
+
+  // Extract user IDs and populate for redemptions
+  const redemptionUserIds = [...new Set(rawRedemptions.map(r => r.userId?.toString()).filter(Boolean))];
+  const redemptionUsers = await User.find({ _id: { $in: redemptionUserIds } }, "name email").lean();
+  const redemptionUserMap = redemptionUsers.reduce((map, u) => {
+    map[u._id.toString()] = u;
+    return map;
+  }, {});
+
+  const enrichedRedemptions = rawRedemptions.map(r => ({
+    ...r,
+    user: r.userId ? (redemptionUserMap[r.userId.toString()] || { name: "Unknown Customer", email: "N/A" }) : { name: "Unknown Customer", email: "N/A" }
+  }));
+
+  // Compile unified recentActivity log
+  const activities = [];
+
+  recentScans.forEach(s => {
+    if (s.usedBy) {
+      activities.push({
+        id: s._id,
+        type: "scan",
+        customerName: s.usedBy.name,
+        customerEmail: s.usedBy.email,
+        detail: `Earned +${s.points} points/stamps`,
+        date: s.usedAt,
+      });
+    }
+  });
+
+  enrichedRedemptions.forEach(r => {
+    activities.push({
+      id: `${r.voucherId}-${r.redeemedAt}`,
+      type: "redemption",
+      customerName: r.user.name,
+      customerEmail: r.user.email,
+      detail: `Redeemed voucher "${r.voucherName}" (${r.voucherType === "percentage" ? `${r.voucherValue}% Off` : `Rs. ${r.voucherValue}`})`,
+      date: r.redeemedAt,
+    });
+  });
+
+  // Sort activities chronologically desc
+  activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const recentActivity = activities.slice(0, 25);
+
+  // Compute stats for VIP vs Churn
+  const activeCount = enrichedCustomers.filter(c => c.status === "Active" || c.status === "VIP").length;
+  const idleCount = enrichedCustomers.filter(c => c.status === "Idle").length;
+  const churnRiskCount = enrichedCustomers.filter(c => c.status === "At Churn Risk").length;
 
   res.status(200).json({
     success: true,
@@ -425,6 +547,14 @@ export const getVendorLoyaltyStats = asyncHandler(async (req, res) => {
       totalActiveQR,
       totalCustomers,
       topCustomers,
+      allCustomers: enrichedCustomers,
+      recentActivity,
+      retentionMetrics: {
+        activeCount,
+        idleCount,
+        churnRiskCount,
+        retentionRate: totalCustomers > 0 ? Math.round((activeCount / totalCustomers) * 100) : 100,
+      }
     },
   });
 });

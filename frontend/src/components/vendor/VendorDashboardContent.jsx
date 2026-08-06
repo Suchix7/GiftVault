@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Gift,
@@ -86,6 +86,9 @@ export default function VendorDashboardContent({
   profileLoading,
   profileForm,
   updatingProfile,
+  vendorStats,
+  statsLoading,
+  onRefreshStats,
   handleViewVoucher,
   handleEditVoucher,
   handleDeleteVoucher,
@@ -105,6 +108,8 @@ export default function VendorDashboardContent({
   setProfileForm,
   onOpenQrScanner,
 }) {
+  const [customerSearch, setCustomerSearch] = useState("");
+
   const renderDashboardContent = () => {
     const activeCount = vouchers?.filter((v) => v?.status === "active").length || 0;
     const draftCount = vouchers?.filter((v) => v?.status === "draft").length || 0;
@@ -203,25 +208,48 @@ export default function VendorDashboardContent({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-6">
-              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm">
-                <h2 className="text-xl font-bold tracking-tight mb-6">Recent Activity</h2>
-                <div className="space-y-3">
-                  {vouchers?.slice(0, 5).map((voucher) => (
-                    <div key={voucher._id} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-transparent hover:border-gray-100 transition-all group">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center">
-                          <Gift className="h-5 w-5 text-gray-400 group-hover:text-black transition-colors" />
-                        </div>
-                        <div>
-                          <p className="font-bold text-gray-900 text-sm">{voucher.name}</p>
-                          <p className="text-[10px] font-mono text-gray-400 uppercase tracking-widest">
-                            {voucher.createdAt ? format(new Date(voucher.createdAt), "MMM dd, yyyy") : "Recently"}
-                          </p>
-                        </div>
+              <div className="bg-white p-8 rounded-[2.5rem] border border-gray-100 shadow-sm flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold tracking-tight">Recent Activity</h2>
+                    {onRefreshStats && (
+                      <button onClick={onRefreshStats} className="text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black transition-colors">
+                        Refresh
+                      </button>
+                    )}
+                  </div>
+                  <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1 no-scrollbar">
+                    {statsLoading ? (
+                      <div className="text-center py-10 text-gray-300 text-xs font-black uppercase tracking-widest">
+                        Syncing Activities...
                       </div>
-                      <div className="text-[10px] font-bold uppercase px-2 py-1 bg-gray-100 rounded-md tracking-tighter">{voucher.status}</div>
-                    </div>
-                  ))}
+                    ) : !vendorStats?.recentActivity || vendorStats.recentActivity.length === 0 ? (
+                      <div className="text-center py-10 text-gray-300 text-xs font-black uppercase tracking-widest">
+                        No Recent Activity
+                      </div>
+                    ) : (
+                      vendorStats.recentActivity.slice(0, 5).map((act, i) => (
+                        <div key={act.id || i} className="flex items-center justify-between p-4 bg-gray-50/50 rounded-2xl border border-transparent hover:border-gray-100 transition-all group">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center shrink-0">
+                              {act.type === "scan" ? (
+                                <Zap className="h-5 w-5 text-yellow-500" />
+                              ) : (
+                                <Gift className="h-5 w-5 text-emerald-500" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-bold text-gray-900 text-sm truncate">{act.customerName}</p>
+                              <p className="text-[9px] font-medium text-gray-400 truncate">{act.detail}</p>
+                            </div>
+                          </div>
+                          <div className="text-[8px] font-bold text-gray-400 uppercase shrink-0 text-right ml-2">
+                            {act.date ? format(new Date(act.date), "MMM dd") : "Just now"}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1021,6 +1049,187 @@ export default function VendorDashboardContent({
     );
   };
 
+  const renderCustomersContent = () => {
+    const safeCustomers = vendorStats?.allCustomers || [];
+    const filteredCustomers = safeCustomers.filter(c =>
+      c.name.toLowerCase().includes(customerSearch.toLowerCase()) ||
+      c.email.toLowerCase().includes(customerSearch.toLowerCase())
+    );
+
+    const activeCount = vendorStats?.retentionMetrics?.activeCount || 0;
+    const idleCount = vendorStats?.retentionMetrics?.idleCount || 0;
+    const churnRiskCount = vendorStats?.retentionMetrics?.churnRiskCount || 0;
+    const retentionRate = vendorStats?.retentionMetrics?.retentionRate || 100;
+
+    return (
+      <motion.div className="space-y-10 pb-20" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tighter text-gray-900">Customers & Retention</h1>
+            <p className="text-gray-500 font-medium text-sm">Monitor visits, stamp progress, and prevent customer churn.</p>
+          </div>
+          {onRefreshStats && (
+            <button onClick={onRefreshStats} className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold uppercase tracking-wider px-4 py-2.5 rounded-full transition-colors">
+              Refresh Stats
+            </button>
+          )}
+        </div>
+
+        {/* Retention metrics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col justify-between h-36">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <Users size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Total Database</p>
+              <h3 className="text-2xl font-black tracking-tighter text-gray-900">{safeCustomers.length}</h3>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col justify-between h-36">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Active / VIP</p>
+              <h3 className="text-2xl font-black tracking-tighter text-gray-900">{activeCount} <span className="text-xs text-gray-400 font-medium">({retentionRate}% rate)</span></h3>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col justify-between h-36">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <Zap size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Idle (3d+ Inactive)</p>
+              <h3 className="text-2xl font-black tracking-tighter text-gray-900">{idleCount}</h3>
+            </div>
+          </div>
+          <div className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm flex flex-col justify-between h-36">
+            <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center">
+              <Zap size={20} />
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Churn Warning (7d+)</p>
+              <h3 className="text-2xl font-black tracking-tighter text-rose-500">{churnRiskCount}</h3>
+            </div>
+          </div>
+        </div>
+
+        {/* Directory & activity */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 items-start">
+          {/* Customer directory table */}
+          <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-sm xl:col-span-2 overflow-hidden">
+            <div className="p-8 border-b border-gray-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Customer Directory</h3>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                <input
+                  placeholder="Search customers..."
+                  className="pl-9 pr-4 py-2 w-full bg-gray-50 border-none rounded-xl focus:bg-white focus:ring-2 focus:ring-black outline-none text-xs font-bold transition-all"
+                  value={customerSearch}
+                  onChange={e => setCustomerSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-50">
+                <thead className="bg-gray-50/50">
+                  <tr className="text-[9px] font-black uppercase tracking-widest text-gray-400">
+                    <th className="px-6 py-4 text-left">Customer</th>
+                    <th className="px-6 py-4 text-center">Stamps / Points</th>
+                    <th className="px-6 py-4 text-left">Last Activity</th>
+                    <th className="px-6 py-4 text-right">Retention Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {statsLoading ? (
+                    <tr>
+                      <td colSpan="4" className="py-20 text-center text-xs font-black uppercase text-gray-300">
+                        Loading directory...
+                      </td>
+                    </tr>
+                  ) : filteredCustomers.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="py-20 text-center text-xs font-black uppercase text-gray-400">
+                        No customers found.
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredCustomers.map(cust => (
+                      <tr key={cust.userId} className="hover:bg-gray-50/20 transition-all">
+                        <td className="px-6 py-4">
+                          <p className="text-sm font-bold text-gray-900">{cust.name}</p>
+                          <p className="text-[10px] text-gray-400 truncate max-w-[180px]">{cust.email}</p>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <div className="inline-flex flex-col items-center">
+                            <span className="text-xs font-black text-gray-900">{cust.currentStamps} stamps</span>
+                            <span className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">{cust.totalPoints} pts total</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className="text-xs font-bold text-gray-600">
+                            {cust.lastScannedAt ? format(new Date(cust.lastScannedAt), "MMM dd, yyyy") : "Never scanned"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-right">
+                          <span className={`inline-block text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+                            cust.statusColor === "emerald" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                            cust.statusColor === "rose" ? "bg-rose-50 text-rose-600 border-rose-100" :
+                            cust.statusColor === "amber" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                            cust.statusColor === "indigo" ? "bg-indigo-50 text-indigo-600 border-indigo-100" :
+                            "bg-gray-50 text-gray-500 border-gray-100"
+                          }`}>
+                            {cust.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Chronological Activity Feed */}
+          <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-sm p-8 space-y-6">
+            <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Activity Registry</h3>
+            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1 no-scrollbar">
+              {statsLoading ? (
+                <div className="text-center py-20 text-xs font-black uppercase text-gray-300">
+                  Retrieving activity...
+                </div>
+              ) : !vendorStats?.recentActivity || vendorStats.recentActivity.length === 0 ? (
+                <div className="text-center py-20 text-xs font-black uppercase text-gray-400">
+                  No activity logged.
+                </div>
+              ) : (
+                vendorStats.recentActivity.map((act, i) => (
+                  <div key={act.id || i} className="flex gap-4 items-start p-4 bg-gray-50/50 rounded-2xl">
+                    <div className="p-2.5 bg-white rounded-xl shadow-sm shrink-0 mt-0.5">
+                      {act.type === "scan" ? (
+                        <Zap size={16} className="text-yellow-500" />
+                      ) : (
+                        <Gift size={16} className="text-emerald-500" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-gray-900">{act.customerName}</p>
+                      <p className="text-[10px] text-gray-500 mt-0.5 font-medium leading-relaxed">{act.detail}</p>
+                      <p className="text-[8px] text-gray-400 uppercase tracking-wider font-bold mt-1.5">
+                        {act.date ? format(new Date(act.date), "MMM dd, yyyy 'at' hh:mm a") : "Just now"}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
+
   const renderSettingsContent = () => {
     if (profileLoading) {
       return (
@@ -1240,6 +1449,7 @@ export default function VendorDashboardContent({
             {currentPage === "loyalty" && renderLoyaltyContent()}
             {currentPage === "qr_generator" && renderQrGeneratorContent()}
             {currentPage === "distribution" && renderDistributionContent()}
+            {currentPage === "customers" && renderCustomersContent()}
             {currentPage === "analytics" && renderAnalyticsContent()}
             {currentPage === "settings" && renderSettingsContent()}
           </motion.div>

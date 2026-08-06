@@ -555,6 +555,186 @@ const OverviewPage = ({ users, loading, error, analytics }) => {
   );
 };
 
+function CustomerRetentionRegistry({ analytics, analyticsLoading, onRefresh, searchTerm, setSearchTerm }) {
+  const [selectedStatus, setSelectedStatus] = useState("All Statuses");
+  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [inspectCustomer, setInspectCustomer] = useState(null);
+
+  if (analyticsLoading) {
+    return (
+      <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-gray-400">
+        <div className="w-10 h-10 border-4 border-gray-100 border-t-black rounded-full animate-spin" />
+        <p className="text-[10px] font-black uppercase tracking-widest">Loading Retention Ledger...</p>
+      </div>
+    );
+  }
+
+  const retentionData = analytics?.customerRetention || { customers: [], summary: { activeCount: 0, idleCount: 0, churnRiskCount: 0, inactiveCount: 0, retentionRate: 100 } };
+  const { customers: retentionList, summary } = retentionData;
+
+  const filtered = retentionList
+    .filter(c => {
+      if (selectedStatus === "All Statuses") return true;
+      return c.status === selectedStatus;
+    })
+    .filter(c => {
+      if (selectedCategory === "All Categories") return true;
+      return c.preferredCategory === selectedCategory;
+    })
+    .filter(c =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      c.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+  return (
+    <div className="space-y-8 pb-20">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h1 className="text-4xl font-black tracking-tighter text-gray-900 uppercase">Retention Project</h1>
+          <p className="text-gray-500 font-medium text-sm mt-1">Algorithmic risk tracking & churn prevention mechanisms.</p>
+        </div>
+        <button onClick={onRefresh} className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400 bg-white border border-gray-100 shadow-sm px-4 py-2 rounded-full hover:border-gray-200 transition-all">
+          <RefreshCw size={12} /> Sync Ledger
+        </button>
+      </header>
+
+      {/* Retention KPIs */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <StatCard title="Active Retention Rate" value={`${summary.retentionRate}%`} sub="Target: >90% stable" icon={TrendingUp} badge="Live" />
+        <StatCard title="VIP Customers" value={retentionList.filter(c => c.status === "VIP").length} sub="High value assets (>100 pts)" icon={Star} />
+        <StatCard title="Idle Warn (3d+)" value={summary.idleCount} sub="Needs retention focus" icon={AlertTriangle} />
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1 group">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-black transition-colors" />
+          <input placeholder="Search customer records by name or email..." className="pl-11 pr-4 py-3.5 w-full bg-white border border-gray-100 rounded-[1.2rem] focus:ring-4 focus:ring-gray-50 outline-none text-sm font-medium transition-all shadow-sm" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+        </div>
+        <select value={selectedStatus} onChange={e => setSelectedStatus(e.target.value)} className="h-14 px-4 bg-white border border-gray-100 rounded-[1.2rem] text-xs font-bold uppercase tracking-wider outline-none focus:ring-4 focus:ring-gray-50/50 cursor-pointer">
+          <option value="All Statuses">All Statuses</option>
+          <option value="VIP">VIP</option>
+          <option value="Active">Active</option>
+          <option value="Idle">Idle</option>
+          <option value="At Churn Risk">Churn Risk</option>
+          <option value="Inactive">Inactive</option>
+        </select>
+        <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} className="h-14 px-4 bg-white border border-gray-100 rounded-[1.2rem] text-xs font-bold uppercase tracking-wider outline-none focus:ring-4 focus:ring-gray-50/50 cursor-pointer">
+          <option value="All Categories">All Categories</option>
+          {CATEGORIES.map(c => <option key={c} value={c}>{CATEGORY_EMOJIS[c]} {c}</option>)}
+        </select>
+      </div>
+
+      <div className="bg-white border border-gray-100 rounded-[2.5rem] shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-50">
+            <thead className="bg-gray-50/50">
+              <tr className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                <th className="px-8 py-5 text-left">Identity</th>
+                <th className="px-8 py-5 text-center">Global Points</th>
+                <th className="px-8 py-5 text-center">Redemptions</th>
+                <th className="px-8 py-5 text-center">Preferred Category</th>
+                <th className="px-8 py-5 text-left">Last scan</th>
+                <th className="px-8 py-5 text-right">Risk status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50">
+              {filtered.map(cust => (
+                <tr key={cust.userId} className="group hover:bg-gray-50/30 transition-all">
+                  <td className="px-8 py-4">
+                    <p className="text-sm font-bold text-gray-900">{cust.name}</p>
+                    <p className="text-[10px] text-gray-400">{cust.email}</p>
+                  </td>
+                  <td className="px-8 py-4 text-center text-sm font-black text-gray-900">
+                    {cust.bonusPoints} pts
+                  </td>
+                  <td className="px-8 py-4 text-center">
+                    <button onClick={() => setInspectCustomer(cust)} className="px-3.5 py-1.5 bg-gray-50 group-hover:bg-black group-hover:text-white rounded-xl text-xs font-bold transition-all border border-gray-100">
+                      {cust.redemptionsCount} vouchers
+                    </button>
+                  </td>
+                  <td className="px-8 py-4 text-center">
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded-full uppercase" style={{ background: (CATEGORY_COLORS[cust.preferredCategory] || "#6b7280") + "15", color: CATEGORY_COLORS[cust.preferredCategory] || "#6b7280" }}>
+                      {CATEGORY_EMOJIS[cust.preferredCategory] || "🏪"} {cust.preferredCategory}
+                    </span>
+                  </td>
+                  <td className="px-8 py-4">
+                    <p className="text-xs font-bold text-gray-900">
+                      {cust.lastScanDate ? format(new Date(cust.lastScanDate), "MMM dd, yyyy") : "Never scanned"}
+                    </p>
+                    {cust.inactiveDays > 0 && (
+                      <p className="text-[9px] text-gray-400 font-medium">Inactive for {cust.inactiveDays} days</p>
+                    )}
+                  </td>
+                  <td className="px-8 py-4 text-right">
+                    <span className={cn("text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-full border",
+                      cust.status === "Active" || cust.status === "VIP" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                      cust.status === "Idle" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                      cust.status === "At Churn Risk" ? "bg-rose-50 text-rose-600 border-rose-100" :
+                      "bg-gray-50 text-gray-400 border-gray-100"
+                    )}>
+                      {cust.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filtered.length === 0 && (
+            <div className="py-20 text-center text-[10px] font-black uppercase tracking-widest text-gray-400">
+              No customer records matching query.
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Redeemed Vouchers History Modal */}
+      <AnimatePresence>
+        {inspectCustomer && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/55 backdrop-blur-md">
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg shadow-2xl relative">
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h3 className="text-xl font-bold tracking-tight text-gray-900">Voucher Redemption Registry</h3>
+                  <p className="text-xs text-gray-400 mt-1">Audit log for {inspectCustomer.name}</p>
+                </div>
+                <button onClick={() => setInspectCustomer(null)} className="p-2 hover:bg-gray-50 rounded-full text-gray-400 hover:text-black transition-colors"><X size={20} /></button>
+              </div>
+
+              <div className="space-y-4 max-h-[350px] overflow-y-auto pr-1 no-scrollbar">
+                {inspectCustomer.redeemedVouchers && inspectCustomer.redeemedVouchers.length > 0 ? (
+                  inspectCustomer.redeemedVouchers.map((v, idx) => (
+                    <div key={idx} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 flex justify-between items-center">
+                      <div>
+                        <p className="text-sm font-bold text-gray-900">{v.name}</p>
+                        <span className="text-[9px] font-black uppercase tracking-wider" style={{ color: CATEGORY_COLORS[v.category] || "#6b7280" }}>
+                          {CATEGORY_EMOJIS[v.category]} {v.category}
+                        </span>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-black text-gray-900">
+                          {v.type === "percentage" ? `${v.value}% Off` : `Rs. ${v.value}`}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-xs font-black uppercase text-gray-300">
+                    No Vouchers Redeemed Yet
+                  </div>
+                )}
+              </div>
+
+              <button onClick={() => setInspectCustomer(null)} className="w-full mt-6 py-4 bg-black text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-gray-800 transition-all">
+                Dismiss Registry
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
 // ─── Data Registry (Vendors / Customers / Admins) ─────────────────
 function DataRegistry({ type, title, users, searchTerm, setSearchTerm, setCreatingUserType, setEditingUser, setIsCreateModalOpen, setViewingUser, setIsViewModalOpen, setUserToDelete, setIsDeleteModalOpen, toggleApprovalStatus, onCategoryUpdate }) {
   const roleMap = { vendors: "vendor", customers: "user", admins: "admin" };
@@ -721,7 +901,7 @@ export default function AdminDashboardContent({
             {currentPage === "dashboard" && <OverviewPage users={users} loading={loading} error={error} analytics={analytics} />}
             {currentPage === "analytics" && <AnalyticsPage analytics={analytics} loading={analyticsLoading} onRefresh={onRefreshAnalytics} />}
             {currentPage === "vendors" && <DataRegistry type="vendors" title="Vendor Management" {...registryProps} />}
-            {currentPage === "customers" && <DataRegistry type="customers" title="Customer Directory" {...registryProps} />}
+            {currentPage === "customers" && <CustomerRetentionRegistry analytics={analytics} analyticsLoading={analyticsLoading} onRefresh={onRefreshAnalytics} searchTerm={searchTerm} setSearchTerm={setSearchTerm} />}
             {currentPage === "admins" && <DataRegistry type="admins" title="Admin Governance" {...registryProps} />}
             {currentPage === "cryptography" && <CryptographyBenchmarkPage />}
           </motion.div>

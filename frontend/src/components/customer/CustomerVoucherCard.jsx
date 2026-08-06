@@ -49,7 +49,7 @@ export default function CustomerVoucherCard({
                 Secure Asset
               </p>
               <p className="text-[9px] md:text-[10px] font-bold text-white uppercase truncate max-w-[80px] md:max-w-[100px]">
-                {vendorName || voucher.vendor?.name || vendors[voucher.vendorId] || vendors[String(voucher.vendorId?._id || "")] || "Verified Partner"}
+                {vendorName || voucher.vendor?.companyName || voucher.vendor?.name || vendors[voucher.vendorId] || vendors[String(voucher.vendorId?._id || "")] || "Verified Partner"}
               </p>
             </div>
           </div>

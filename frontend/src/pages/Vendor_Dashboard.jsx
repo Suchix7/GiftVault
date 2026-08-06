@@ -40,6 +40,7 @@ import VendorDashboardContent from "@/components/vendor/VendorDashboardContent";
 import QrScannerModal from "@/components/QrScannerModal";
 import VendorLoyaltySettings from "@/components/loyalty/VendorLoyaltySettings";
 import VendorQRGenerator from "@/components/loyalty/VendorQRGenerator";
+import loyaltyAPI from "@/api/loyalty";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BarChart,
@@ -72,6 +73,9 @@ const Vendor_Dashboard = () => {
   const [vouchers, setVouchers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const [vendorStats, setVendorStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   // User profile state
   const [userProfile, setUserProfile] = useState(null);
@@ -127,6 +131,11 @@ const Vendor_Dashboard = () => {
     //   label: "Distribution",
     //   icon: <Share2 className="h-5 w-5" />,
     // },
+    {
+      id: "customers",
+      label: "Customers",
+      icon: <Users className="h-5 w-5" />,
+    },
     {
       id: "analytics",
       label: "Analytics",
@@ -228,6 +237,28 @@ const Vendor_Dashboard = () => {
 
     loadUserProfile();
   }, []);
+
+  // Fetch Vendor Stats (Loyalty & Activity)
+  const fetchVendorStats = async () => {
+    if (!userProfile?._id) return;
+    try {
+      setStatsLoading(true);
+      const res = await loyaltyAPI.getVendorStats(userProfile._id);
+      if (res.success) {
+        setVendorStats(res.data);
+      }
+    } catch (err) {
+      console.error("Failed to load vendor stats:", err);
+    } finally {
+      setStatsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (userProfile?._id) {
+      fetchVendorStats();
+    }
+  }, [userProfile, voucherCreated]);
 
   // Filter vouchers
   const filteredVouchers = useMemo(() => {
@@ -2408,6 +2439,9 @@ const Vendor_Dashboard = () => {
         profileLoading={profileLoading}
         profileForm={profileForm}
         updatingProfile={updatingProfile}
+        vendorStats={vendorStats}
+        statsLoading={statsLoading}
+        onRefreshStats={fetchVendorStats}
         handleViewVoucher={handleViewVoucher}
         handleEditVoucher={handleEditVoucher}
         handleDeleteVoucher={handleDeleteVoucher}

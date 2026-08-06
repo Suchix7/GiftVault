@@ -67,7 +67,7 @@ export default function CustomerDashboard() {
         const vendorMap = {};
         const vendors = vendorRes.data.users || [];
         vendors.forEach((v) => {
-          vendorMap[v._id] = v.name;
+          vendorMap[v._id] = v.companyName || v.name;
         });
         setVendors(vendorMap);
 
@@ -81,7 +81,7 @@ export default function CustomerDashboard() {
             );
             if (loyaltyRes.success) {
               loyaltyMap[vendor._id] = {
-                vendorName: vendor.name,
+                vendorName: vendor.companyName || vendor.name,
                 ...loyaltyRes.data,
               };
             }

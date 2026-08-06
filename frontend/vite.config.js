@@ -13,11 +13,11 @@ export default defineConfig({
     },
   },
   server: {
-    host:true,
-    https:true,
+    host: true,
+    https: true,
     proxy: {
       "/api": {
-        target: "http://localhost:5555", // Updated to match your backend port
+        target: "http://localhost:5555",
         changeOrigin: true,
         secure: false,
       },
